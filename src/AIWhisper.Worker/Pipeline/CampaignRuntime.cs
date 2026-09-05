@@ -19,8 +19,10 @@ public sealed class CampaignRuntime : IAsyncDisposable
     private readonly string _campaignId;
     private readonly string _campaignDirectory;
     private readonly WorkerOptions _options;
+    private readonly MemoryOptions _memoryOptions;
     private readonly IWorkerLog _log;
     private readonly CheckpointStore _checkpointStore;
+    private readonly CampaignMemoryStore _memoryStore;
     private readonly LogFileWatcher _serverWatcher;
     private readonly LogFileWatcher _clientWatcher;
     private readonly EventMerger _merger;
@@ -36,6 +38,7 @@ public sealed class CampaignRuntime : IAsyncDisposable
         string campaignId,
         string campaignDirectory,
         WorkerOptions options,
+        MemoryOptions memoryOptions,
         IWorkerLog log,
         IAIDecisionService aiDecisionService,
         ITextToSpeech textToSpeech,
@@ -44,9 +47,11 @@ public sealed class CampaignRuntime : IAsyncDisposable
         _campaignId = campaignId;
         _campaignDirectory = campaignDirectory;
         _options = options;
+        _memoryOptions = memoryOptions;
         _log = log;
 
         _checkpointStore = new CheckpointStore(Path.Combine(campaignDirectory, options.CheckpointFileName));
+        _memoryStore = new CampaignMemoryStore(Path.Combine(campaignDirectory, options.MemoryFileName));
 
         _serverWatcher = new LogFileWatcher(Path.Combine(campaignDirectory, options.ServerLogFileName), TimeSpan.FromMilliseconds(options.FilePollIntervalMs));
         _clientWatcher = new LogFileWatcher(Path.Combine(campaignDirectory, options.ClientLogFileName), TimeSpan.FromMilliseconds(options.FilePollIntervalMs));
@@ -73,7 +78,9 @@ public sealed class CampaignRuntime : IAsyncDisposable
             textToSpeech,
             log,
             systemPrompt,
-            options.MaxConversationHistoryEntries);
+            options.MaxConversationHistoryEntries,
+            _memoryStore,
+            _memoryOptions);
     }
 
     public async Task StartAsync(CancellationToken outerToken)
@@ -82,6 +89,19 @@ public sealed class CampaignRuntime : IAsyncDisposable
         var token = _cts.Token;
 
         var checkpoint = await _checkpointStore.LoadAsync(token);
+        var memoryAlreadyExists = _memoryStore.Exists;
+        try
+        {
+            _campaignContext.Memory = await _memoryStore.LoadAsync(token);
+            _log.Info(memoryAlreadyExists
+                ? $"loaded campaign memory for {_campaignId}"
+                : $"started with new empty campaign memory for {_campaignId}");
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _campaignContext.Memory = new CampaignMemory();
+            _log.Error($"failed to load campaign memory for {_campaignId}; using empty memory", ex);
+        }
         if (checkpoint.Files.TryGetValue(_options.ServerLogFileName, out var serverCheckpoint))
         {
             _serverWatcher.RestoreCheckpoint(serverCheckpoint);

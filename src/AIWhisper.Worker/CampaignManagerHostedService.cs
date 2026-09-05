@@ -22,6 +22,7 @@ public sealed class CampaignManagerHostedService : BackgroundService
     private readonly TtsOptions _ttsOptions;
     private readonly VoiceEffectsOptions _voiceEffectsOptions;
     private readonly PreSpeechCueOptions _preSpeechCueOptions;
+    private readonly MemoryOptions _memoryOptions;
     private CampaignManager? _campaignManager;
 
     private const string DefaultSystemPrompt =
@@ -35,13 +36,15 @@ public sealed class CampaignManagerHostedService : BackgroundService
         IOptions<OpenAIOptions> openAiOptions,
         IOptions<TtsOptions> ttsOptions,
         IOptions<VoiceEffectsOptions> voiceEffectsOptions,
-        IOptions<PreSpeechCueOptions> preSpeechCueOptions)
+        IOptions<PreSpeechCueOptions> preSpeechCueOptions,
+        IOptions<MemoryOptions> memoryOptions)
     {
         _workerOptions = workerOptions.Value;
         _openAiOptions = openAiOptions.Value;
         _ttsOptions = ttsOptions.Value;
         _voiceEffectsOptions = voiceEffectsOptions.Value;
         _preSpeechCueOptions = preSpeechCueOptions.Value;
+        _memoryOptions = memoryOptions.Value;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -84,6 +87,7 @@ public sealed class CampaignManagerHostedService : BackgroundService
 
         _campaignManager = new CampaignManager(
             _workerOptions,
+            _memoryOptions,
             aiDecisionService,
             audioDirectory => new ElevenLabsTextToSpeech(
                 _ttsOptions,

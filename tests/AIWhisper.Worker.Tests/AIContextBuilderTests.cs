@@ -57,4 +57,25 @@ public class AIContextBuilderTests
         Assert.Contains("D0", prompt);
         Assert.Contains("Gale: hello", prompt);
     }
+
+    [Fact]
+    public void BuildUserPrompt_IncludesPersistentMemoryBeforeRecentContext()
+    {
+        var campaign = new CampaignContext { CampaignId = "C1", Directory = "/tmp/C1" };
+        campaign.Memory.Summary = "The player is earning Astarion's trust.";
+        campaign.Memory.Relationships["Astarion"] = "Flirtatious but cautious.";
+        campaign.Memory.ImportantEvents.Add("The player promised to protect the grove.");
+        campaign.History.Add(new ConversationHistoryEntry("D0", null, null, null, "recent exchange", "silent", null));
+
+        var dialogue = new DialogueState { CampaignId = "C1", DialogueId = "D1" };
+        dialogue.Events.Add(MakeEvent("dialogue.line", DateTime.UtcNow, """{"dialogueId":"D1","speaker":"Gale","text":"We should go."}"""));
+
+        var prompt = new AIContextBuilder().BuildUserPrompt(campaign, dialogue, maxHistoryEntries: 5);
+
+        Assert.Contains("CAMPAIGN MEMORY", prompt);
+        Assert.Contains("Astarion: Flirtatious but cautious.", prompt);
+        Assert.Contains("RECENT CONTEXT", prompt);
+        Assert.True(prompt.IndexOf("CAMPAIGN MEMORY", StringComparison.Ordinal) < prompt.IndexOf("RECENT CONTEXT", StringComparison.Ordinal));
+        Assert.Contains("CURRENT EVENT", prompt);
+    }
 }

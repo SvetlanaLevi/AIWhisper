@@ -1,3 +1,5 @@
+using AIWhisper.Worker.Conversation;
+
 namespace AIWhisper.Worker.AI;
 
 public sealed record AIRequestContext(string SystemPrompt, string UserPrompt);
@@ -10,4 +12,8 @@ public sealed record AIRequestContext(string SystemPrompt, string UserPrompt);
 public interface IAIDecisionService
 {
     Task<AIDecision> DecideAsync(AIRequestContext context, CancellationToken cancellationToken);
+    Task<CampaignMemoryUpdate> UpdateCampaignMemoryAsync(
+        CampaignMemory currentMemory,
+        string transcript,
+        CancellationToken cancellationToken);
 }

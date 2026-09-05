@@ -15,6 +15,7 @@ namespace AIWhisper.Worker.Pipeline;
 public sealed class CampaignManager : IAsyncDisposable
 {
     private readonly WorkerOptions _options;
+    private readonly MemoryOptions _memoryOptions;
     private readonly IAIDecisionService _aiDecisionService;
     private readonly Func<string, ITextToSpeech> _ttsFactory;
     private readonly Func<string, IWorkerLog> _logFactory;
@@ -29,6 +30,7 @@ public sealed class CampaignManager : IAsyncDisposable
 
     public CampaignManager(
         WorkerOptions options,
+        MemoryOptions memoryOptions,
         IAIDecisionService aiDecisionService,
         Func<string, ITextToSpeech> ttsFactory,
         Func<string, IWorkerLog> logFactory,
@@ -36,6 +38,7 @@ public sealed class CampaignManager : IAsyncDisposable
         string systemPrompt)
     {
         _options = options;
+        _memoryOptions = memoryOptions;
         _aiDecisionService = aiDecisionService;
         _ttsFactory = ttsFactory;
         _logFactory = logFactory;
@@ -79,6 +82,7 @@ public sealed class CampaignManager : IAsyncDisposable
                 campaignId,
                 campaignDirectory,
                 _options,
+                _memoryOptions,
                 campaignLog,
                 _aiDecisionService,
                 _ttsFactory(audioDirectory),

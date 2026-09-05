@@ -28,9 +28,11 @@ public sealed class AIContextBuilder
             sb.AppendLine();
         }
 
+        AppendCampaignMemory(sb, campaign.Memory);
+
         if (campaign.History.Count > 0)
         {
-            sb.AppendLine("Recent conversation history:");
+            sb.AppendLine("RECENT CONTEXT");
             foreach (var entry in campaign.History.TakeLast(maxHistoryEntries))
             {
                 var reaction = entry.AiAction == "speak" ? $"responded: \"{entry.AiText}\"" : "stayed silent";
@@ -44,10 +46,39 @@ public sealed class AIContextBuilder
             sb.AppendLine("Speakers in this dialogue: " + string.Join(", ", dialogue.Speakers.Select(s => s.Name)));
         }
 
-        sb.AppendLine("Current dialogue:");
+        sb.AppendLine("CURRENT EVENT");
         sb.AppendLine(BuildTranscript(dialogue));
 
         return sb.ToString();
+    }
+
+    private static void AppendCampaignMemory(StringBuilder sb, CampaignMemory memory)
+    {
+        if (string.IsNullOrWhiteSpace(memory.Summary) &&
+            memory.ImportantEvents.Count == 0 &&
+            memory.Relationships.Count == 0 &&
+            memory.PlayerTraits.Count == 0 &&
+            memory.RunningJokes.Count == 0)
+        {
+            return;
+        }
+
+        sb.AppendLine("CAMPAIGN MEMORY");
+        if (!string.IsNullOrWhiteSpace(memory.Summary)) sb.AppendLine($"Summary: {memory.Summary}");
+        AppendList(sb, "Relationships", memory.Relationships.OrderBy(pair => pair.Key).Select(pair => $"{pair.Key}: {pair.Value}"));
+        AppendList(sb, "Player tendencies", memory.PlayerTraits);
+        AppendList(sb, "Important past events", memory.ImportantEvents);
+        AppendList(sb, "Running jokes", memory.RunningJokes);
+        sb.AppendLine();
+    }
+
+    private static void AppendList(StringBuilder sb, string heading, IEnumerable<string> items)
+    {
+        var values = items.Where(value => !string.IsNullOrWhiteSpace(value)).ToList();
+        if (values.Count == 0) return;
+
+        sb.AppendLine(heading + ":");
+        foreach (var value in values) sb.AppendLine("- " + value);
     }
 
     public string BuildTranscript(DialogueState dialogue)

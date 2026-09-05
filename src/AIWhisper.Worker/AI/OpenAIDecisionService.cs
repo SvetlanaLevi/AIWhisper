@@ -1,5 +1,7 @@
 using System.ClientModel;
+using System.Text.Json;
 using AIWhisper.Worker.Configuration;
+using AIWhisper.Worker.Conversation;
 using AIWhisper.Worker.Logging;
 using OpenAI;
 using OpenAI.Responses;
@@ -83,6 +85,91 @@ public sealed class OpenAIDecisionService : IAIDecisionService
             {
                 var delay = TimeSpan.FromMilliseconds(_options.RetryBaseDelayMs * Math.Pow(2, attempt - 1));
                 _log.Warn($"OpenAI request failed (attempt {attempt}/{_options.MaxRetries}), retrying in {delay}: {ex.Message}");
+                await Task.Delay(delay, cancellationToken);
+            }
+        }
+    }
+
+    public async Task<CampaignMemoryUpdate> UpdateCampaignMemoryAsync(
+        CampaignMemory currentMemory,
+        string transcript,
+        CancellationToken cancellationToken)
+    {
+        var schema = BinaryData.FromString("""
+        {
+          "type": "object",
+          "properties": {
+            "UpdatedSummary": { "type": ["string", "null"] },
+            "ImportantEventsToAdd": { "type": "array", "items": { "type": "string" } },
+            "RelationshipUpdates": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "Name": { "type": "string" },
+                  "Description": { "type": "string" }
+                },
+                "required": ["Name", "Description"],
+                "additionalProperties": false
+              }
+            },
+            "PlayerTraitsToAdd": { "type": "array", "items": { "type": "string" } },
+            "RunningJokesToAdd": { "type": "array", "items": { "type": "string" } }
+          },
+          "required": ["UpdatedSummary", "ImportantEventsToAdd", "RelationshipUpdates", "PlayerTraitsToAdd", "RunningJokesToAdd"],
+          "additionalProperties": false
+        }
+        """);
+
+        var prompt = $"""
+        You maintain long-term memory for a character observing a Baldur's Gate 3 campaign.
+
+        Store only information likely to matter later. Good candidates are important story developments, meaningful relationship changes, repeated player behavior, promises, betrayals, conflicts, romantic developments, facts useful for later callbacks, and recurring patterns that can support a running joke.
+
+        Do not store ordinary dialogue, generic greetings, short-lived facts, duplicates already present in memory, or trivial wording details. PlayerTraits must describe recurring behavior, not a conclusion from one isolated choice unless that event is exceptionally significant. RunningJokes must be genuinely reusable recurring patterns, not a single funny event. Keep UpdatedSummary concise.
+
+        Return a delta only. Never repeat existing items merely to preserve them. Use empty lists, an empty object, and null UpdatedSummary when there is nothing worth adding or changing.
+
+        CURRENT CAMPAIGN MEMORY
+        {JsonSerializer.Serialize(currentMemory)}
+
+        NEWLY PROCESSED DIALOGUE
+        {transcript}
+        """;
+
+        var creationOptions = new CreateResponseOptions
+        {
+            Model = _options.Model,
+            TextOptions = new ResponseTextOptions
+            {
+                TextFormat = ResponseTextFormat.CreateJsonSchemaFormat(
+                    "campaign_memory_update",
+                    schema,
+                    null,
+                    true),
+            },
+        };
+        creationOptions.InputItems.Add(ResponseItem.CreateUserMessageItem(prompt));
+
+        var attempt = 0;
+        while (true)
+        {
+            attempt++;
+            try
+            {
+                var response = await _client.CreateResponseAsync(creationOptions, cancellationToken);
+                var text = response.Value.GetOutputText();
+                var update = JsonSerializer.Deserialize<CampaignMemoryUpdate>(text);
+                return update ?? new CampaignMemoryUpdate();
+            }
+            catch (JsonException ex)
+            {
+                throw new InvalidOperationException($"malformed structured campaign memory update: {ex.Message}", ex);
+            }
+            catch (Exception ex) when (attempt <= _options.MaxRetries && IsTransient(ex))
+            {
+                var delay = TimeSpan.FromMilliseconds(_options.RetryBaseDelayMs * Math.Pow(2, attempt - 1));
+                _log.Warn($"OpenAI memory request failed (attempt {attempt}/{_options.MaxRetries}), retrying in {delay}: {ex.Message}");
                 await Task.Delay(delay, cancellationToken);
             }
         }

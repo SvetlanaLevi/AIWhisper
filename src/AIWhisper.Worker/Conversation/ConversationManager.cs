@@ -1,6 +1,8 @@
 using AIWhisper.Worker.AI;
+using AIWhisper.Worker.Configuration;
 using AIWhisper.Worker.EventProcessing;
 using AIWhisper.Worker.Logging;
+using AIWhisper.Worker.Persistence;
 using AIWhisper.Worker.Tts;
 
 namespace AIWhisper.Worker.Conversation;
@@ -21,6 +23,8 @@ public sealed class ConversationManager
     private readonly IWorkerLog _log;
     private readonly string _systemPrompt;
     private readonly int _maxHistoryEntries;
+    private readonly CampaignMemoryStore _memoryStore;
+    private readonly MemoryOptions _memoryOptions;
 
     public ConversationManager(
         CampaignContext campaign,
@@ -29,7 +33,9 @@ public sealed class ConversationManager
         ITextToSpeech textToSpeech,
         IWorkerLog log,
         string systemPrompt,
-        int maxHistoryEntries)
+        int maxHistoryEntries,
+        CampaignMemoryStore memoryStore,
+        MemoryOptions memoryOptions)
     {
         _campaign = campaign;
         _contextBuilder = contextBuilder;
@@ -38,6 +44,8 @@ public sealed class ConversationManager
         _log = log;
         _systemPrompt = systemPrompt;
         _maxHistoryEntries = maxHistoryEntries;
+        _memoryStore = memoryStore;
+        _memoryOptions = memoryOptions;
     }
 
     public async Task ProcessAsync(DialogueState dialogue, CancellationToken cancellationToken)
@@ -69,12 +77,18 @@ public sealed class ConversationManager
         {
             _log.Info($"dialogue {dialogue.DialogueId}: AI decided to stay silent");
             RecordHistory(dialogue, transcript, "silent", null);
+            await UpdateCampaignMemoryAsync(dialogue, transcript, cancellationToken);
             return;
         }
 
         var aiTextForLog = decision.Text?.ReplaceLineEndings(" ") ?? string.Empty;
         _log.Info($"dialogue {dialogue.DialogueId}: AI decided to speak: {aiTextForLog}");
         RecordHistory(dialogue, transcript, "speak", decision.Text);
+
+        // Start the independent memory request now, but do not make speech wait
+        // for it. ProcessAsync still awaits it before accepting the next
+        // dialogue, keeping updates sequential for this campaign.
+        var memoryUpdateTask = UpdateCampaignMemoryAsync(dialogue, transcript, cancellationToken);
 
         try
         {
@@ -85,6 +99,10 @@ public sealed class ConversationManager
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _log.Error($"TTS failed for dialogue {dialogue.DialogueId} - AI text was produced but not spoken", ex);
+        }
+        finally
+        {
+            await memoryUpdateTask;
         }
     }
 
@@ -100,5 +118,31 @@ public sealed class ConversationManager
             summary,
             aiAction,
             aiText));
+    }
+
+    private async Task UpdateCampaignMemoryAsync(
+        DialogueState dialogue,
+        string transcript,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var update = await _aiDecisionService.UpdateCampaignMemoryAsync(
+                _campaign.Memory,
+                transcript,
+                cancellationToken);
+            if (!CampaignMemoryMerger.Apply(_campaign.Memory, update, _memoryOptions))
+            {
+                _log.Info($"campaign {_campaign.CampaignId}: memory update for dialogue {dialogue.DialogueId} contained no changes");
+                return;
+            }
+
+            await _memoryStore.SaveAsync(_campaign.Memory, cancellationToken);
+            _log.Info($"campaign {_campaign.CampaignId}: memory updated and saved after dialogue {dialogue.DialogueId}");
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _log.Error($"campaign {_campaign.CampaignId}: failed to update memory after dialogue {dialogue.DialogueId}", ex);
+        }
     }
 }

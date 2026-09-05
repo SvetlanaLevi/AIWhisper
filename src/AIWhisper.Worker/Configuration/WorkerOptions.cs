@@ -11,6 +11,7 @@ public sealed class WorkerOptions
     public string ClientLogFileName { get; set; } = "client.log";
     public string WorkerLogFileName { get; set; } = "worker.log";
     public string CheckpointFileName { get; set; } = "worker-state.json";
+    public string MemoryFileName { get; set; } = "memory.json";
     public string AudioDirectoryName { get; set; } = "audio";
     public string SystemPromptPath { get; set; } = "config/ai-system-prompt.txt";
     public int MaxConversationHistoryEntries { get; set; } = 20;

@@ -10,4 +10,5 @@ public sealed class CampaignContext
     public required string Directory { get; init; }
     public SessionContext Session { get; } = new();
     public List<ConversationHistoryEntry> History { get; } = new();
+    public CampaignMemory Memory { get; set; } = new();
 }
