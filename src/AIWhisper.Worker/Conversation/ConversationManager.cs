@@ -51,6 +51,7 @@ public sealed class ConversationManager
 
         var userPrompt = _contextBuilder.BuildUserPrompt(_campaign, dialogue, _maxHistoryEntries);
         var requestContext = new AIRequestContext(_systemPrompt, userPrompt);
+        _log.Info($"dialogue {dialogue.DialogueId}: requesting an AI decision ({dialogue.Events.Count} event(s), {transcript.Length} transcript character(s))");
 
         AIDecision decision;
         try
@@ -71,7 +72,8 @@ public sealed class ConversationManager
             return;
         }
 
-        _log.Info($"dialogue {dialogue.DialogueId}: AI decided to speak");
+        var aiTextForLog = decision.Text?.ReplaceLineEndings(" ") ?? string.Empty;
+        _log.Info($"dialogue {dialogue.DialogueId}: AI decided to speak: {aiTextForLog}");
         RecordHistory(dialogue, transcript, "speak", decision.Text);
 
         try

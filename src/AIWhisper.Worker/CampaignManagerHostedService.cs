@@ -40,10 +40,21 @@ public sealed class CampaignManagerHostedService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        var configuredRootDirectory = Environment.ExpandEnvironmentVariables(_workerOptions.RootDirectory);
+        if (configuredRootDirectory.Contains('%') || !Path.IsPathFullyQualified(configuredRootDirectory))
+        {
+            throw new InvalidOperationException(
+                "Worker:RootDirectory must resolve to an absolute path. " +
+                "Use a value such as %LOCALAPPDATA%\\Larian Studios\\Baldur's Gate 3\\Script Extender\\DialogExtractor.");
+        }
+
+        _workerOptions.RootDirectory = Path.GetFullPath(configuredRootDirectory);
         Directory.CreateDirectory(_workerOptions.RootDirectory);
         var rootLog = new CampaignFileLog(
             Path.Combine(_workerOptions.RootDirectory, "_root-worker.log"),
             alsoWriteToConsole: true);
+
+        rootLog.Info($"AIWhisper is monitoring '{_workerOptions.RootDirectory}' for campaign folders");
 
         var apiKey = Environment.GetEnvironmentVariable("OPENAI_API_KEY");
         if (string.IsNullOrWhiteSpace(apiKey))
@@ -68,8 +79,10 @@ public sealed class CampaignManagerHostedService : BackgroundService
         _campaignManager = new CampaignManager(
             _workerOptions,
             aiDecisionService,
-            audioDirectory => new EventLabTextToSpeech(_ttsOptions, audioDirectory, rootLog),
-            campaignDirectory => new CampaignFileLog(Path.Combine(campaignDirectory, _workerOptions.WorkerLogFileName)),
+            audioDirectory => new ElevenLabsTextToSpeech(_ttsOptions, audioDirectory, rootLog),
+            campaignDirectory => new CampaignFileLog(
+                Path.Combine(campaignDirectory, _workerOptions.WorkerLogFileName),
+                alsoWriteToConsole: true),
             rootLog,
             systemPrompt);
 

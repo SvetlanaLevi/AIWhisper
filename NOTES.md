@@ -107,14 +107,11 @@ the only seam that matters here.
 
 ## Assumptions made (flagged per the brief's own rule in section 53)
 
-- **Event Lab integration surface.** Not specified anywhere in the brief.
-  `Tts/EventLabTextToSpeech.cs` assumes a local HTTP endpoint that accepts
-  `POST { text, voice, format, speaker }` and returns raw audio bytes,
-  configured via the `Tts` section in `appsettings.json` (`BaseUrl`,
-  `Endpoint`, `Voice`, `Format`, `ApiKeyEnvironmentVariable`). If Event Lab's
-  actual integration is a CLI, a named pipe, or a different HTTP shape,
-  only this one file needs to change - `ITextToSpeech` is the seam the rest
-  of the pipeline depends on, exactly as the brief's notes asked for.
+- **ElevenLabs TTS.** `Tts/ElevenLabsTextToSpeech.cs` calls the public
+  ElevenLabs API directly at `https://api.elevenlabs.io/v1/text-to-speech`.
+  Set `ELEVENLABS_API_KEY` and `Tts:Voice` (the ElevenLabs voice ID) before
+  starting the worker. The default model is `eleven_multilingual_v2` and the
+  audio format is `mp3_22050_32`; both can be changed in the `Tts` section.
 - **OpenAI model name.** Defaulted to `gpt-4.1-mini` in `appsettings.json`;
   change `OpenAI:Model` to whatever you want to use.
 - **AI system prompt.** A starting prompt lives at
@@ -155,10 +152,11 @@ the only seam that matters here.
    sandbox this was built in).
 2. Set the `OPENAI_API_KEY` environment variable (required - the worker
    refuses to start without it, and never logs it).
-3. Optionally set `EVENTLAB_API_KEY` if your Event Lab endpoint needs one.
+3. Set `ELEVENLABS_API_KEY` and `Tts:Voice` (an ElevenLabs voice ID).
 4. Point `Worker:RootDirectory` in `appsettings.json` at wherever
    `DialogExtractor` mod writes its campaign folders (defaults to a
-   relative `DialogExtractor` folder next to the worker).
+   relative `DialogExtractor` folder next to the worker). Windows environment
+   variables such as `%LOCALAPPDATA%` are supported.
 5. `dotnet run --project src/AIWhisper.Worker`.
 6. `dotnet test` runs the test suite (once packages are restored).
 

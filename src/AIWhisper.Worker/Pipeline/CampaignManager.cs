@@ -48,6 +48,16 @@ public sealed class CampaignManager : IAsyncDisposable
         _cts = CancellationTokenSource.CreateLinkedTokenSource(outerToken);
         var token = _cts.Token;
 
+        var existingCampaignCount = Directory.EnumerateDirectories(_options.RootDirectory).Count();
+        if (existingCampaignCount == 0)
+        {
+            _rootLog.Warn("no campaign folders found yet; waiting for DialogExtractor to create one");
+        }
+        else
+        {
+            _rootLog.Info($"found {existingCampaignCount} existing campaign folder(s); starting their watchers");
+        }
+
         _directoryWatcher = new CampaignDirectoryWatcher(_options.RootDirectory, TimeSpan.FromMilliseconds(_options.DirectoryPollIntervalMs));
         _directoryWatcher.CampaignDiscovered += campaignId => _ = OnCampaignDiscoveredAsync(campaignId, token);
         _watcherTask = _directoryWatcher.RunAsync(token);

@@ -101,7 +101,7 @@ public sealed class CampaignRuntime : IAsyncDisposable
 
         _checkpointTimer = new Timer(_ => _ = SaveCheckpointAsync(CancellationToken.None), null, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(5));
 
-        _log.Info($"campaign {_campaignId} runtime started ({_campaignDirectory})");
+        _log.Info($"campaign {_campaignId} runtime started; watching '{_options.ServerLogFileName}' and '{_options.ClientLogFileName}' in '{_campaignDirectory}'");
     }
 
     private async Task PumpLinesAsync(LogFileWatcher watcher, string sourceLabel, CancellationToken token)
@@ -110,6 +110,7 @@ public sealed class CampaignRuntime : IAsyncDisposable
         {
             if (EventParser.TryParse(line, _campaignId, out var evt, out var error))
             {
+                _log.Debug($"[{sourceLabel}] received event '{evt!.Type}'{(evt.DialogueId is null ? string.Empty : $" for dialogue {evt.DialogueId}")}");
                 _merger.Publish(evt!);
             }
             else if (error is not null)

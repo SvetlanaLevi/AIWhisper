@@ -24,6 +24,7 @@
          IntelliSense. Bump further if a newer stable release has since
          graduated Responses out of experimental. -->
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.0" />
+    <PackageReference Include="NAudio" Version="2.3.0" />
     <PackageReference Include="OpenAI" Version="2.12.0" />
   </ItemGroup>
 

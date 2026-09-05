@@ -100,6 +100,7 @@ public sealed class DialogueAggregator : IDisposable
                 state.DialogueResource = resource.GetString();
             }
             state.Events.Add(evt);
+            _log.Info($"dialogue {evt.DialogueId} started");
         }
     }
 
@@ -183,6 +184,7 @@ public sealed class DialogueAggregator : IDisposable
             state.EndTime = evt.Timestamp;
             state.Status = DialogueStatus.EndPending;
             state.Events.Add(evt);
+            _log.Info($"dialogue {evt.DialogueId} ended; waiting {_endDelay.TotalMilliseconds:0} ms for trailing events");
         }
 
         _ = FinalizeAfterDelayAsync(key);
