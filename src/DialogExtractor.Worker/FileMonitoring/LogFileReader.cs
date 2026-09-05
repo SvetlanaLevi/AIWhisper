@@ -34,10 +34,10 @@ namespace DialogExtractor.Worker.FileMonitoring;
 /// </summary>
 public sealed class LogFileReader
 {
-    private readonly string _filePath;
-    private readonly Channel<string> _lines = Channel.CreateUnbounded<string>();
+    readonly string _filePath;
+    readonly Channel<string> _lines = Channel.CreateUnbounded<string>();
 
-    private long _position;
+    long _position;
 
     public event Action<Exception>? PollFailed;
 

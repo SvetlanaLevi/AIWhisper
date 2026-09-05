@@ -20,28 +20,36 @@ namespace DialogExtractor.Worker.AI;
 /// removed.
 ///
 /// *** NOT COMPILE-VERIFIED ***
-/// This file could not be built against the real `OpenAI` NuGet package in
-/// the environment this was authored in (that sandbox had no NuGet
-/// registry access at all - every other file in this project WAS
-/// independently compiled and exercised with real inputs there, just not
-/// this one). The type/method names below (ResponseCreationOptions,
-/// ResponseTextOptions, ResponseTextFormat.CreateJsonSchemaFormat,
-/// ResponseItem.Create*MessageItem, GetOutputText, ClientResultException)
-/// reflect the Responses API surface as documented at the time of writing,
-/// but the SDK is young and its exact surface has moved between versions.
-/// Run `dotnet build` after restoring packages and adjust names here if
-/// the compiler disagrees - the retry/parsing logic around the call does
-/// not depend on getting every name exactly right.
+/// This still could not be built against the real `OpenAI` NuGet package in
+/// the environment this was authored in (no NuGet registry access there
+/// either). This revision corrects the previous draft's invented type names
+/// (`ResponsesClient` / `ResponsesClientOptions`, which do not exist in the
+/// SDK) to the real surface: the client type is `OpenAIResponseClient`, and
+/// the *client-level* options type shared across every OpenAI.* sub-client
+/// (chat, responses, embeddings, ...) is `OpenAIClientOptions` - there is no
+/// per-service "ResponsesClientOptions". Per-call options for a single
+/// CreateResponseAsync invocation are a separate type, `ResponseCreationOptions`.
+/// Run `dotnet build` after restoring packages and adjust names here if the
+/// compiler disagrees - in particular, double check `OpenAIClientOptions`
+/// still exposes `NetworkTimeout` (inherited from `ClientPipelineOptions`)
+/// under 2.12.0. The retry/parsing logic around the call does not depend on
+/// getting every name exactly right.
 /// </summary>
 public sealed class OpenAIDecisionService : IAIDecisionService
 {
-    private readonly OpenAIClient OpenAIResponseClient _client;
+    private readonly OpenAIResponseClient _client;
     private readonly OpenAIOptions _options;
     private readonly IWorkerLog _log;
 
     public OpenAIDecisionService(string apiKey, OpenAIOptions options, IWorkerLog log)
     {
-        _client = new OpenAIResponseClient(options.Model, apiKey);
+        var credential = new ApiKeyCredential(apiKey);
+        var clientOptions = new OpenAIClientOptions
+        {
+            NetworkTimeout = TimeSpan.FromSeconds(options.TimeoutSeconds),
+        };
+
+        _client = new OpenAIResponseClient(options.Model, credential, clientOptions);
         _options = options;
         _log = log;
     }

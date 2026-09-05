@@ -7,11 +7,11 @@ namespace DialogExtractor.Worker.FileMonitoring;
 /// </summary>
 public sealed class CampaignDirectoryWatcher : IDisposable
 {
-    private readonly string _rootDirectory;
-    private readonly TimeSpan _pollInterval;
-    private readonly FileSystemWatcher? _watcher;
-    private readonly HashSet<string> _known = new(StringComparer.Ordinal);
-    private readonly object _gate = new();
+    readonly string _rootDirectory;
+    readonly TimeSpan _pollInterval;
+    readonly FileSystemWatcher? _watcher;
+    readonly HashSet<string> _known = new(StringComparer.Ordinal);
+    readonly object _gate = new();
 
     public event Action<string>? CampaignDiscovered;
 

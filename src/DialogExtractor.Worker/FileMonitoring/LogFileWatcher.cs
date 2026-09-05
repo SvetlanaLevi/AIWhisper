@@ -12,13 +12,13 @@ namespace DialogExtractor.Worker.FileMonitoring;
 /// </summary>
 public sealed class LogFileWatcher : IAsyncDisposable
 {
-    private readonly LogFileReader _reader;
-    private readonly TimeSpan _pollInterval;
-    private readonly FileSystemWatcher? _watcher;
-    private readonly Channel<byte> _pings = Channel.CreateBounded<byte>(new BoundedChannelOptions(1) { FullMode = BoundedChannelFullMode.DropWrite });
+    readonly LogFileReader _reader;
+    readonly TimeSpan _pollInterval;
+    readonly FileSystemWatcher? _watcher;
+    readonly Channel<byte> _pings = Channel.CreateBounded<byte>(new BoundedChannelOptions(1) { FullMode = BoundedChannelFullMode.DropWrite });
 
-    private CancellationTokenSource? _cts;
-    private Task? _loopTask;
+    CancellationTokenSource? _cts;
+    Task? _loopTask;
 
     public event Action<Exception>? PollFailed
     {
