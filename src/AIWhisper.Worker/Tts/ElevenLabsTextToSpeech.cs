@@ -16,18 +16,24 @@ public sealed class ElevenLabsTextToSpeech : ITextToSpeech, IDisposable
     private readonly string _audioDirectory;
     private readonly IWorkerLog _log;
     private readonly IAudioPlayback? _audioPlayback;
+    private readonly PreSpeechCueOptions _preSpeechCueOptions;
 
     public ElevenLabsTextToSpeech(
         TtsOptions options,
         string audioDirectory,
         IWorkerLog log,
         HttpClient? httpClient = null,
-        IAudioPlayback? audioPlayback = null)
+        IAudioPlayback? audioPlayback = null,
+        VoiceEffectsOptions? voiceEffectsOptions = null,
+        PreSpeechCueOptions? preSpeechCueOptions = null)
     {
         _options = options;
         _audioDirectory = audioDirectory;
         _log = log;
-        _audioPlayback = options.PlayOnWindows ? audioPlayback ?? new WindowsAudioPlayback() : null;
+        _audioPlayback = options.PlayOnWindows
+            ? audioPlayback ?? new WindowsAudioPlayback(new PsychicDoubleVoiceEffectProcessor(voiceEffectsOptions ?? new VoiceEffectsOptions()))
+            : null;
+        _preSpeechCueOptions = preSpeechCueOptions ?? new PreSpeechCueOptions();
         Directory.CreateDirectory(_audioDirectory);
 
         _httpClient = httpClient ?? new HttpClient();
@@ -76,12 +82,41 @@ public sealed class ElevenLabsTextToSpeech : ITextToSpeech, IDisposable
 
         if (_audioPlayback is not null)
         {
+            await PlayPreSpeechCueAsync(cancellationToken);
             _log.Info($"playing dialogue {context.DialogueId} through the Windows default audio device");
             await _audioPlayback.PlayAsync(filePath, cancellationToken);
             _log.Info($"finished playing dialogue {context.DialogueId}");
         }
 
         return new AudioResult(filePath, GetFileExtension(_options.OutputFormat));
+    }
+
+    private async Task PlayPreSpeechCueAsync(CancellationToken cancellationToken)
+    {
+        if (!_preSpeechCueOptions.Enabled || _audioPlayback is null)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_preSpeechCueOptions.FilePath))
+        {
+            _log.Warn("pre-speech cue is enabled but PreSpeechCue:FilePath is empty; skipping cue");
+            return;
+        }
+
+        var cuePath = Path.GetFullPath(Environment.ExpandEnvironmentVariables(_preSpeechCueOptions.FilePath));
+        if (!File.Exists(cuePath))
+        {
+            _log.Warn($"pre-speech cue file was not found at '{cuePath}'; skipping cue");
+            return;
+        }
+
+        _log.Info($"playing pre-speech cue '{Path.GetFileName(cuePath)}'");
+        await _audioPlayback.PlayUnprocessedAsync(
+            cuePath,
+            _preSpeechCueOptions.Volume,
+            _preSpeechCueOptions.DurationMs,
+            cancellationToken);
     }
 
     private string BuildFileName(VoiceContext context)

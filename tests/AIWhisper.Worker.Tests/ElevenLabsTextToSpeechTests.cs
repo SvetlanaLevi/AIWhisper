@@ -56,6 +56,59 @@ public sealed class ElevenLabsTextToSpeechTests
         }
     }
 
+    [Fact]
+    public async Task SynthesizeAsync_PlaysConfiguredCueBeforeGeneratedSpeech()
+    {
+        const string keyVariable = "AIWHISPER_TEST_ELEVENLABS_CUE_API_KEY";
+        var originalKey = Environment.GetEnvironmentVariable(keyVariable);
+        var outputDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        var cuePath = Path.GetTempFileName();
+        Environment.SetEnvironmentVariable(keyVariable, "test-key");
+
+        try
+        {
+            var playback = new RecordingPlayback();
+            using var client = new HttpClient(new RecordingHandler()) { BaseAddress = new Uri("https://api.elevenlabs.io") };
+            using var sut = new ElevenLabsTextToSpeech(
+                new TtsOptions
+                {
+                    Voice = "voice",
+                    ApiKeyEnvironmentVariable = keyVariable,
+                    PlayOnWindows = true,
+                },
+                outputDirectory,
+                new NullWorkerLog(),
+                client,
+                playback,
+                preSpeechCueOptions: new PreSpeechCueOptions
+                {
+                    Enabled = true,
+                    FilePath = cuePath,
+                    Volume = 0.4f,
+                    DurationMs = 650,
+                });
+
+            var result = await sut.SynthesizeAsync(
+                "Hello.",
+                new VoiceContext("campaign", "dialogue", "Narrator", null),
+                CancellationToken.None);
+
+            Assert.Collection(
+                playback.Calls,
+                call => Assert.Equal(("cue", cuePath, 0.4f, 650), call),
+                call => Assert.Equal(("speech", result.FilePath, 1.0f, 0), call));
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(keyVariable, originalKey);
+            File.Delete(cuePath);
+            if (Directory.Exists(outputDirectory))
+            {
+                Directory.Delete(outputDirectory, recursive: true);
+            }
+        }
+    }
+
     private sealed class RecordingHandler : HttpMessageHandler
     {
         public Uri? RequestUri { get; private set; }
@@ -81,5 +134,22 @@ public sealed class ElevenLabsTextToSpeechTests
         public void Info(string message) { }
         public void Warn(string message) { }
         public void Error(string message, Exception? exception = null) { }
+    }
+
+    private sealed class RecordingPlayback : IAudioPlayback
+    {
+        public List<(string Type, string Path, float Volume, int DurationMs)> Calls { get; } = [];
+
+        public Task PlayAsync(string filePath, CancellationToken cancellationToken)
+        {
+            Calls.Add(("speech", filePath, 1.0f, 0));
+            return Task.CompletedTask;
+        }
+
+        public Task PlayUnprocessedAsync(string filePath, float volume, int durationMs, CancellationToken cancellationToken)
+        {
+            Calls.Add(("cue", filePath, volume, durationMs));
+            return Task.CompletedTask;
+        }
     }
 }
