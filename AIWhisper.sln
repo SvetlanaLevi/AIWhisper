@@ -1,36 +1,28 @@
-
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{4DEAE7B7-874B-4B14-A03C-21A670B4F278}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DialogExtractor.Worker", "src\DialogExtractor.Worker\DialogExtractor.Worker.csproj", "{F21A1D40-6296-4C19-BF4D-2A278130F2D1}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AIWhisper.Worker", "src\AIWhisper.Worker\AIWhisper.Worker.csproj", "{F21A1D40-6296-4C19-BF4D-2A278130F2D1}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{3FB6CF4E-1F5B-498C-9480-6DD91BD4AF53}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DialogExtractor.Worker.Tests", "tests\DialogExtractor.Worker.Tests\DialogExtractor.Worker.Tests.csproj", "{B3708B4C-853F-4EFF-89BE-307A9091DBC6}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
-	GlobalSection(SolutionProperties) = preSolution
-		HideSolutionNode = FALSE
-	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
 		{F21A1D40-6296-4C19-BF4D-2A278130F2D1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{F21A1D40-6296-4C19-BF4D-2A278130F2D1}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{F21A1D40-6296-4C19-BF4D-2A278130F2D1}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{F21A1D40-6296-4C19-BF4D-2A278130F2D1}.Release|Any CPU.Build.0 = Release|Any CPU
-		{B3708B4C-853F-4EFF-89BE-307A9091DBC6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{B3708B4C-853F-4EFF-89BE-307A9091DBC6}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{B3708B4C-853F-4EFF-89BE-307A9091DBC6}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{B3708B4C-853F-4EFF-89BE-307A9091DBC6}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{F21A1D40-6296-4C19-BF4D-2A278130F2D1} = {4DEAE7B7-874B-4B14-A03C-21A670B4F278}
-		{B3708B4C-853F-4EFF-89BE-307A9091DBC6} = {3FB6CF4E-1F5B-498C-9480-6DD91BD4AF53}
 	EndGlobalSection
 EndGlobal

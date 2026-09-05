@@ -1,0 +1,42 @@
+<Project Sdk="Microsoft.NET.Sdk.Worker">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>AIWhisper.Worker</RootNamespace>
+    <UserSecretsId>dialog-extractor-worker</UserSecretsId>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <!-- OpenAI.Responses (OpenAIResponseClient) is still marked
+         [Experimental("OPENAI001")] as of package 2.12.0 - suppressing it
+         here is a deliberate, scoped choice (see OpenAIDecisionService.cs),
+         not a blanket "ignore warnings". -->
+    <NoWarn>$(NoWarn);OPENAI001</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The Responses API (OpenAI.Responses / OpenAIResponseClient) only
+         exists from 2.2.0-beta.3 onward - 2.1.0 (this project's original
+         guess) predates it entirely, which is why it was missing from
+         IntelliSense. Bump further if a newer stable release has since
+         graduated Responses out of experimental. -->
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.0" />
+    <PackageReference Include="OpenAI" Version="2.12.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="appsettings.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="appsettings.Development.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="config\ai-system-prompt.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+</Project>

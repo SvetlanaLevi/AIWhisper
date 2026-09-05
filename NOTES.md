@@ -1,6 +1,6 @@
-# DialogExtractor.Worker - implementation notes
+# AIWhisper.Worker - implementation notes
 
-This documents what was built for `DialogExtractor.Worker`, and - per the
+This documents what was built for `AIWhisper.Worker`, and - per the
 brief's own rule ("if a requirement isn't defined, don't silently invent it -
 state the assumption") - every place an assumption had to be made because the
 brief or the mod's code didn't pin it down.
@@ -9,8 +9,8 @@ brief or the mod's code didn't pin it down.
 
 ```
 AIWhisper.sln
-src/DialogExtractor.Worker/       - the worker itself (see Program.cs)
-tests/DialogExtractor.Worker.Tests/ - xUnit tests for the core pipeline
+src/AIWhisper.Worker/       - the worker itself (see Program.cs)
+tests/AIWhisper.Worker.Tests/ - xUnit tests for the core pipeline
 ```
 
 Namespaces mirror the folders: `FileMonitoring`, `EventProcessing`,
@@ -118,7 +118,7 @@ the only seam that matters here.
 - **OpenAI model name.** Defaulted to `gpt-4.1-mini` in `appsettings.json`;
   change `OpenAI:Model` to whatever you want to use.
 - **AI system prompt.** A starting prompt lives at
-  `src/DialogExtractor.Worker/config/ai-system-prompt.txt` and is loaded at
+  `src/AIWhisper.Worker/config/ai-system-prompt.txt` and is loaded at
   startup (falls back to a short built-in default if the file is missing,
   with a warning in the log). Replace its content freely - nothing in the
   code depends on its wording.
@@ -159,7 +159,7 @@ the only seam that matters here.
 4. Point `Worker:RootDirectory` in `appsettings.json` at wherever
    `DialogExtractor` mod writes its campaign folders (defaults to a
    relative `DialogExtractor` folder next to the worker).
-5. `dotnet run --project src/DialogExtractor.Worker`.
+5. `dotnet run --project src/AIWhisper.Worker`.
 6. `dotnet test` runs the test suite (once packages are restored).
 
 Per-campaign `worker.log`, `worker-state.json`, and an `audio/` folder are

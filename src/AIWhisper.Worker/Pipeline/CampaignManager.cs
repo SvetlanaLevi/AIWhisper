@@ -1,0 +1,114 @@
+using AIWhisper.Worker.AI;
+using AIWhisper.Worker.Configuration;
+using AIWhisper.Worker.FileMonitoring;
+using AIWhisper.Worker.Logging;
+using AIWhisper.Worker.Tts;
+
+namespace AIWhisper.Worker.Pipeline;
+
+/// <summary>
+/// Root of the worker: discovers campaign directories under
+/// WorkerOptions.RootDirectory and owns one independent CampaignRuntime per
+/// campaign. Campaigns never share readers, merger, aggregator, or
+/// conversation state.
+/// </summary>
+public sealed class CampaignManager : IAsyncDisposable
+{
+    private readonly WorkerOptions _options;
+    private readonly IAIDecisionService _aiDecisionService;
+    private readonly Func<string, ITextToSpeech> _ttsFactory;
+    private readonly Func<string, IWorkerLog> _logFactory;
+    private readonly IWorkerLog _rootLog;
+    private readonly string _systemPrompt;
+
+    private readonly Dictionary<string, CampaignRuntime> _runtimes = new(StringComparer.Ordinal);
+    private readonly object _gate = new();
+    private CampaignDirectoryWatcher? _directoryWatcher;
+    private Task? _watcherTask;
+    private CancellationTokenSource? _cts;
+
+    public CampaignManager(
+        WorkerOptions options,
+        IAIDecisionService aiDecisionService,
+        Func<string, ITextToSpeech> ttsFactory,
+        Func<string, IWorkerLog> logFactory,
+        IWorkerLog rootLog,
+        string systemPrompt)
+    {
+        _options = options;
+        _aiDecisionService = aiDecisionService;
+        _ttsFactory = ttsFactory;
+        _logFactory = logFactory;
+        _rootLog = rootLog;
+        _systemPrompt = systemPrompt;
+    }
+
+    public Task StartAsync(CancellationToken outerToken)
+    {
+        _cts = CancellationTokenSource.CreateLinkedTokenSource(outerToken);
+        var token = _cts.Token;
+
+        _directoryWatcher = new CampaignDirectoryWatcher(_options.RootDirectory, TimeSpan.FromMilliseconds(_options.DirectoryPollIntervalMs));
+        _directoryWatcher.CampaignDiscovered += campaignId => _ = OnCampaignDiscoveredAsync(campaignId, token);
+        _watcherTask = _directoryWatcher.RunAsync(token);
+
+        return Task.CompletedTask;
+    }
+
+    private async Task OnCampaignDiscoveredAsync(string campaignId, CancellationToken token)
+    {
+        CampaignRuntime runtime;
+        lock (_gate)
+        {
+            if (_runtimes.ContainsKey(campaignId)) return;
+            var campaignDirectory = Path.Combine(_options.RootDirectory, campaignId);
+            var campaignLog = _logFactory(campaignDirectory);
+            var audioDirectory = Path.Combine(campaignDirectory, _options.AudioDirectoryName);
+
+            runtime = new CampaignRuntime(
+                campaignId,
+                campaignDirectory,
+                _options,
+                campaignLog,
+                _aiDecisionService,
+                _ttsFactory(audioDirectory),
+                _systemPrompt);
+
+            _runtimes[campaignId] = runtime;
+        }
+
+        _rootLog.Info($"discovered new campaign '{campaignId}'");
+        try
+        {
+            await runtime.StartAsync(token);
+        }
+        catch (Exception ex)
+        {
+            _rootLog.Error($"failed to start runtime for campaign '{campaignId}'", ex);
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        _cts?.Cancel();
+        _directoryWatcher?.Dispose();
+
+        if (_watcherTask is not null)
+        {
+            try { await _watcherTask; } catch (OperationCanceledException) { }
+        }
+
+        List<CampaignRuntime> runtimes;
+        lock (_gate)
+        {
+            runtimes = _runtimes.Values.ToList();
+        }
+
+        foreach (var runtime in runtimes)
+        {
+            await runtime.DisposeAsync();
+        }
+
+        _cts?.Dispose();
+    }
+}
