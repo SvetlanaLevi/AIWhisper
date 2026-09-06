@@ -32,8 +32,22 @@ public sealed class PsychicDoubleVoiceEffectProcessor : IVoiceEffectProcessor
         }
 
         var sharedSource = new SharedSampleSource(source);
-        var originalVoice = sharedSource.CreateReader();
+        ISampleProvider originalVoice = sharedSource.CreateReader();
         ISampleProvider shadowVoice = sharedSource.CreateReader();
+
+        var distance = Math.Clamp(_options.Distance, 0f, 1f);
+        if (distance > 0)
+        {
+            // Distant sound loses direct energy and high frequencies before it
+            // reaches the listener. Keep the wet shadow unchanged so the room
+            // reflection becomes relatively more prominent with distance.
+            var distantLowPassHz = 12_000f + (2_200f - 12_000f) * distance;
+            originalVoice = new FilterSampleProvider(originalVoice, 0, distantLowPassHz);
+            originalVoice = new VolumeSampleProvider(originalVoice)
+            {
+                Volume = 1f - 0.45f * distance,
+            };
+        }
 
         if (Math.Abs(_options.PitchShiftSemitones) > 0.001f)
         {
@@ -134,22 +148,19 @@ public sealed class PsychicDoubleVoiceEffectProcessor : IVoiceEffectProcessor
         public int Read(float[] buffer, int offset, int count)
         {
             var samplesRead = _source.Read(buffer, offset, count);
-            if (samplesRead == 0)
-            {
-                if (_remainingTailSamples == 0 || !HasAudibleTail())
-                {
-                    return 0;
-                }
-
-                samplesRead = Math.Min(count, _remainingTailSamples);
-                Array.Clear(buffer, offset, samplesRead);
-                _remainingTailSamples -= samplesRead;
-            }
-            else
+            if (samplesRead > 0)
             {
                 // Enough time for a natural decay, while HasAudibleTail stops
                 // playback earlier once the tail has faded to silence.
                 _remainingTailSamples = WaveFormat.SampleRate * WaveFormat.Channels * 2;
+            }
+
+            if (samplesRead < count && _remainingTailSamples > 0 && (samplesRead > 0 || HasAudibleTail()))
+            {
+                var tailSamples = Math.Min(count - samplesRead, _remainingTailSamples);
+                Array.Clear(buffer, offset + samplesRead, tailSamples);
+                samplesRead += tailSamples;
+                _remainingTailSamples -= tailSamples;
             }
 
             for (var i = 0; i < samplesRead; i++)
@@ -190,20 +201,17 @@ public sealed class PsychicDoubleVoiceEffectProcessor : IVoiceEffectProcessor
         public int Read(float[] buffer, int offset, int count)
         {
             var samplesRead = _source.Read(buffer, offset, count);
-            if (samplesRead == 0)
-            {
-                if (_remainingTailSamples == 0)
-                {
-                    return 0;
-                }
-
-                samplesRead = Math.Min(count, _remainingTailSamples);
-                Array.Clear(buffer, offset, samplesRead);
-                _remainingTailSamples -= samplesRead;
-            }
-            else
+            if (samplesRead > 0)
             {
                 _remainingTailSamples = _delayedSamples.Length;
+            }
+
+            if (samplesRead < count && _remainingTailSamples > 0)
+            {
+                var tailSamples = Math.Min(count - samplesRead, _remainingTailSamples);
+                Array.Clear(buffer, offset + samplesRead, tailSamples);
+                samplesRead += tailSamples;
+                _remainingTailSamples -= tailSamples;
             }
 
             for (var i = 0; i < samplesRead; i++)

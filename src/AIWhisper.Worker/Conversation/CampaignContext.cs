@@ -14,4 +14,5 @@ public sealed class CampaignContext
     public List<ConversationHistoryEntry> History { get; } = new();
     public CampaignMemory Memory { get; set; } = new();
     public ParasiteDevelopmentState Development { get; set; } = new();
+    public IReadOnlyList<string> LastAppliedSystemInstructions { get; set; } = [];
 }

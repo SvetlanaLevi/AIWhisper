@@ -13,13 +13,14 @@ public sealed class ParasiteDevelopmentPolicy
     public bool EnsureInitialized(ParasiteDevelopmentState state, out string? warning)
     {
         warning = null;
-        if (!Enabled) return false;
         if (!string.IsNullOrWhiteSpace(state.CurrentPhase))
         {
             TryGetPhase(state.CurrentPhase, out _, out _, out warning);
             return false;
         }
-        if (!TryGetPhase(_options.InitialPhase, out var phaseName, out _, out warning)) return false;
+
+        var firstConfiguredPhase = _options.PhaseSequence.FirstOrDefault(phase => !string.IsNullOrWhiteSpace(phase));
+        if (!TryGetPhase(firstConfiguredPhase, out var phaseName, out _, out warning)) return false;
 
         state.CurrentPhase = phaseName;
         return true;
@@ -75,12 +76,6 @@ public sealed class ParasiteDevelopmentPolicy
         }
 
         name = _options.PhaseSequence[index];
-        if (!TryGetValue(_options.PhasePrompts, name, out var prompt) || string.IsNullOrWhiteSpace(prompt))
-        {
-            warning = $"parasite development phase '{name}' has no loaded prompt; development instructions are skipped";
-            return false;
-        }
-
         return true;
     }
 

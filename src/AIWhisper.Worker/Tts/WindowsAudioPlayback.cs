@@ -4,7 +4,7 @@ namespace AIWhisper.Worker.Tts;
 
 public interface IAudioPlayback
 {
-    Task PlayAsync(string filePath, CancellationToken cancellationToken);
+    Task PlayAsync(string filePath, float volume, CancellationToken cancellationToken);
     Task PlayUnprocessedAsync(string filePath, float volume, int durationMs, CancellationToken cancellationToken);
 }
 
@@ -22,14 +22,14 @@ public sealed class WindowsAudioPlayback : IAudioPlayback
         _voiceEffectProcessor = voiceEffectProcessor ?? new PsychicDoubleVoiceEffectProcessor(new());
     }
 
-    public Task PlayAsync(string filePath, CancellationToken cancellationToken)
+    public Task PlayAsync(string filePath, float volume, CancellationToken cancellationToken)
     {
         if (!OperatingSystem.IsWindows())
         {
             throw new PlatformNotSupportedException("Windows audio playback is only available on Windows.");
         }
 
-        return Task.Run(() => Play(filePath, applyVoiceEffects: true, volume: 1.0f, cancellationToken), cancellationToken);
+        return Task.Run(() => Play(filePath, applyVoiceEffects: true, volume, cancellationToken), cancellationToken);
     }
 
     public Task PlayUnprocessedAsync(string filePath, float volume, int durationMs, CancellationToken cancellationToken)

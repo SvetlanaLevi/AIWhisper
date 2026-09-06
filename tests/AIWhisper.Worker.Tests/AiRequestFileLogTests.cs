@@ -26,7 +26,8 @@ public sealed class AiRequestFileLogTests
             using (var log = new AiRequestFileLog(path))
             {
                 var stopwatch = Stopwatch.StartNew();
-                log.Write("decision", "gpt-4.1-mini", "CURRENT EVENT\\nGale: Hello", "{\"action\":\"silent\",\"text\":null}", 1, stopwatch);
+                log.Write("decision", "gpt-4.1-mini", "CURRENT EVENT\\nGale: Hello", "{\"action\":\"silent\",\"text\":null}", 1, stopwatch,
+                    systemInstructions: ["file:ai-system-prompt.txt", "comment-frequency:Low"]);
             }
 
             using var document = JsonDocument.Parse(File.ReadAllText(path));
@@ -36,6 +37,9 @@ public sealed class AiRequestFileLogTests
             Assert.Equal("CURRENT EVENT\\nGale: Hello", entry.GetProperty("userContent").GetString());
             Assert.Equal("{\"action\":\"silent\",\"text\":null}", entry.GetProperty("responseContent").GetString());
             Assert.False(entry.TryGetProperty("systemPrompt", out _));
+            Assert.Equal(
+                ["file:ai-system-prompt.txt", "comment-frequency:Low"],
+                entry.GetProperty("systemInstructions").EnumerateArray().Select(value => value.GetString()!).ToArray());
         }
         finally
         {

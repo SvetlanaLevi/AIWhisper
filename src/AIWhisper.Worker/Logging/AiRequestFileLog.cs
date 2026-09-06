@@ -5,12 +5,13 @@ using System.Text.Json;
 namespace AIWhisper.Worker.Logging;
 
 /// <summary>
-/// Diagnostic record of AI calls. It intentionally receives only user-side
-/// content: system prompts and secrets must never be written here.
+/// Diagnostic record of AI calls. System prompt text and secrets must never
+/// be written here; only non-sensitive identifiers of applied instructions
+/// may be recorded.
 /// </summary>
 public interface IAiRequestLog : IDisposable
 {
-    void Write(string operation, string model, string userContent, string? responseContent, int attempts, Stopwatch stopwatch, Exception? exception = null);
+    void Write(string operation, string model, string userContent, string? responseContent, int attempts, Stopwatch stopwatch, Exception? exception = null, IReadOnlyList<string>? systemInstructions = null);
 }
 
 public sealed class AiRequestFileLog : IAiRequestLog, IDisposable
@@ -25,7 +26,7 @@ public sealed class AiRequestFileLog : IAiRequestLog, IDisposable
         Directory.CreateDirectory(Path.GetDirectoryName(filePath)!);
     }
 
-    public void Write(string operation, string model, string userContent, string? responseContent, int attempts, Stopwatch stopwatch, Exception? exception = null)
+    public void Write(string operation, string model, string userContent, string? responseContent, int attempts, Stopwatch stopwatch, Exception? exception = null, IReadOnlyList<string>? systemInstructions = null)
     {
         var entry = new
         {
@@ -34,6 +35,7 @@ public sealed class AiRequestFileLog : IAiRequestLog, IDisposable
             model,
             attempts,
             durationMs = stopwatch.ElapsedMilliseconds,
+            systemInstructions = systemInstructions ?? [],
             userContent,
             responseContent,
             error = exception is null ? null : new { type = exception.GetType().Name, message = exception.Message },
@@ -75,6 +77,6 @@ public sealed class NullAiRequestLog : IAiRequestLog
     public static readonly NullAiRequestLog Instance = new();
     private NullAiRequestLog() { }
 
-    public void Write(string operation, string model, string userContent, string? responseContent, int attempts, Stopwatch stopwatch, Exception? exception = null) { }
+    public void Write(string operation, string model, string userContent, string? responseContent, int attempts, Stopwatch stopwatch, Exception? exception = null, IReadOnlyList<string>? systemInstructions = null) { }
     public void Dispose() { }
 }

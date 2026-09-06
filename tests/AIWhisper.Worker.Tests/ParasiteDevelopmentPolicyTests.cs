@@ -7,7 +7,7 @@ namespace AIWhisper.Worker.Tests;
 public sealed class ParasiteDevelopmentPolicyTests
 {
     [Fact]
-    public void NewOrExistingCampaignWithoutState_InitializesToConfiguredInitialPhase()
+    public void NewOrExistingCampaignWithoutState_InitializesToFirstConfiguredPhase()
     {
         var state = new ParasiteDevelopmentState();
 
@@ -53,16 +53,30 @@ public sealed class ParasiteDevelopmentPolicyTests
     }
 
     [Fact]
-    public void DisabledPolicy_DoesNotInitializeOrProvideInstructions()
+    public void DisabledPolicy_StillInitializesStateButDoesNotProvideInstructions()
     {
         var options = CreateOptions();
         options.Enabled = false;
         var state = new ParasiteDevelopmentState();
         var policy = new ParasiteDevelopmentPolicy(options);
 
-        Assert.False(policy.EnsureInitialized(state, out _));
+        Assert.True(policy.EnsureInitialized(state, out _));
         Assert.False(policy.TryGetInstruction(state, out _, out _));
-        Assert.Empty(state.CurrentPhase);
+        Assert.Equal("Instinctive", state.CurrentPhase);
+    }
+
+    [Fact]
+    public void MissingPrompt_DoesNotPreventDefaultPhaseFromBeingStored()
+    {
+        var options = CreateOptions();
+        options.PhasePrompts.Clear();
+        var state = new ParasiteDevelopmentState();
+        var policy = new ParasiteDevelopmentPolicy(options);
+
+        Assert.True(policy.EnsureInitialized(state, out var warning));
+        Assert.Null(warning);
+        Assert.Equal("Instinctive", state.CurrentPhase);
+        Assert.False(policy.TryGetInstruction(state, out _, out _));
     }
 
     [Fact]
@@ -91,7 +105,6 @@ public sealed class ParasiteDevelopmentPolicyTests
 
     private static ParasiteDevelopmentOptions CreateOptions() => new()
     {
-        InitialPhase = "Instinctive",
         PhaseSequence = ["Instinctive", "Awakening", "Established"],
         Regions = new Dictionary<string, string>
         {

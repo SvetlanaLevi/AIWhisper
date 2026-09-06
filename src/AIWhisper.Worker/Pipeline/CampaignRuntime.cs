@@ -48,7 +48,8 @@ public sealed class CampaignRuntime : IAsyncDisposable
         IWorkerLog log,
         IAIDecisionService aiDecisionService,
         ITextToSpeech textToSpeech,
-        string systemPrompt)
+        string systemPrompt,
+        string systemPromptId = "base:unspecified")
     {
         _campaignId = campaignId;
         _campaignDirectory = campaignDirectory;
@@ -75,18 +76,20 @@ public sealed class CampaignRuntime : IAsyncDisposable
         _aggregator.SessionStartReceived += (player, region) =>
         {
             if (!string.IsNullOrEmpty(player)) _campaignContext.Session.Player = player;
-            if (string.IsNullOrEmpty(region)) return;
-
-            _campaignContext.Session.Region = region;
-            if (_developmentPolicy.TryAdvance(_campaignContext.Development, region, out var previousPhase, out var warning))
+            if (!string.IsNullOrEmpty(region))
             {
-                _log.Info($"campaign {_campaignId}: parasite development advanced {previousPhase} -> {_campaignContext.Development.CurrentPhase} in region {region}");
-                _ = SaveCheckpointAsync(CancellationToken.None);
+                _campaignContext.Session.Region = region;
+                _log.Info($"campaign {_campaignId}: current region is '{region}'");
+                if (_developmentPolicy.TryAdvance(_campaignContext.Development, region, out var previousPhase, out var warning))
+                {
+                    _log.Info($"campaign {_campaignId}: parasite development advanced {previousPhase} -> {_campaignContext.Development.CurrentPhase} in region {region}");
+                }
+                else if (warning is not null)
+                {
+                    _log.Warn($"campaign {_campaignId}: {warning}");
+                }
             }
-            else if (warning is not null)
-            {
-                _log.Warn($"campaign {_campaignId}: {warning}");
-            }
+            _ = SaveCheckpointAsync(CancellationToken.None);
         };
 
         _conversationManager = new ConversationManager(
@@ -99,7 +102,8 @@ public sealed class CampaignRuntime : IAsyncDisposable
             options.MaxConversationHistoryEntries,
             _memoryStore,
             _memoryOptions,
-            _developmentPolicy);
+            _developmentPolicy,
+            systemPromptId);
     }
 
     public async Task StartAsync(CancellationToken outerToken)
@@ -108,11 +112,20 @@ public sealed class CampaignRuntime : IAsyncDisposable
         var token = _cts.Token;
 
         var checkpoint = await _checkpointStore.LoadAsync(token);
+        var restoredSession = checkpoint.Session ?? new SessionContext();
+        _campaignContext.Session.Player = restoredSession.Player;
+        _campaignContext.Session.Region = restoredSession.Region;
         _campaignContext.Development = checkpoint.Development ?? new ParasiteDevelopmentState();
+        _campaignContext.LastAppliedSystemInstructions = checkpoint.LastAppliedSystemInstructions?.ToArray() ?? [];
         if (_developmentPolicy.EnsureInitialized(_campaignContext.Development, out var developmentWarning))
         {
             _log.Info($"campaign {_campaignId}: initialized parasite development phase '{_campaignContext.Development.CurrentPhase}'");
             await SaveCheckpointAsync(token);
+        }
+        else if (string.IsNullOrWhiteSpace(_campaignContext.Development.CurrentPhase))
+        {
+            throw new InvalidOperationException(
+                developmentWarning ?? "ParasiteDevelopment:PhaseSequence must contain at least one phase.");
         }
         else if (developmentWarning is not null)
         {
@@ -219,7 +232,13 @@ public sealed class CampaignRuntime : IAsyncDisposable
                     [_options.ServerLogFileName] = _serverWatcher.CurrentCheckpoint(),
                     [_options.ClientLogFileName] = _clientWatcher.CurrentCheckpoint(),
                 },
+                Session = new SessionContext
+                {
+                    Player = _campaignContext.Session.Player,
+                    Region = _campaignContext.Session.Region,
+                },
                 Development = _campaignContext.Development,
+                LastAppliedSystemInstructions = _campaignContext.LastAppliedSystemInstructions.ToList(),
             };
             await _checkpointStore.SaveAsync(checkpoint, token);
         }

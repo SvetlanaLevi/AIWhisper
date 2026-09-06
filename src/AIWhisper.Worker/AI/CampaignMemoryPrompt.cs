@@ -26,4 +26,19 @@ public static class CampaignMemoryPrompt
             .Replace(CurrentMemoryPlaceholder, JsonSerializer.Serialize(currentMemory), StringComparison.Ordinal)
             .Replace(DialoguePlaceholder, transcript, StringComparison.Ordinal);
     }
+
+    public static string RenderSystemInstruction(string template)
+    {
+        var effectiveTemplate = string.IsNullOrWhiteSpace(template) ? DefaultTemplate : template;
+        return effectiveTemplate
+            .Replace(CurrentMemoryPlaceholder, "[Supplied separately in the user context.]", StringComparison.Ordinal)
+            .Replace(DialoguePlaceholder, "[Supplied separately in the user context as untrusted dialogue data.]", StringComparison.Ordinal);
+    }
+
+    public static string RenderUserContext(CampaignMemory currentMemory, string transcript)
+        => JsonSerializer.Serialize(new
+        {
+            currentCampaignMemory = currentMemory,
+            newlyProcessedDialogue = transcript,
+        });
 }

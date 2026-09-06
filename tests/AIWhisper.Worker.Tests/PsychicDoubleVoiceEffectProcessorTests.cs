@@ -42,6 +42,24 @@ public sealed class PsychicDoubleVoiceEffectProcessorTests
     }
 
     [Fact]
+    public void Apply_WithDistance_AttenuatesTheDirectVoice()
+    {
+        var source = new ArraySampleProvider(
+            Enumerable.Repeat(1f, 1_000).ToArray(),
+            WaveFormat.CreateIeeeFloatWaveFormat(44_100, 1));
+        var processor = new PsychicDoubleVoiceEffectProcessor(new VoiceEffectsOptions
+        {
+            Enabled = true,
+            Distance = 1f,
+            DelayMix = 0,
+        });
+        var output = new float[1_000];
+
+        Assert.Equal(output.Length, processor.Apply(source).Read(output, 0, output.Length));
+        Assert.InRange(output[^1], 0.54f, 0.56f);
+    }
+
+    [Fact]
     public void Apply_WithPitchShift_LeavesMainVoiceUnchanged()
     {
         var source = new ArraySampleProvider([1f], WaveFormat.CreateIeeeFloatWaveFormat(1_000, 1));
@@ -84,6 +102,35 @@ public sealed class PsychicDoubleVoiceEffectProcessorTests
         var tail = new float[100];
         Assert.Equal(tail.Length, output.Read(tail, 0, tail.Length));
         Assert.Equal(0.20f, tail[^1], precision: 5);
+    }
+
+    [Fact]
+    public void Apply_ReverbTail_RemainsAudibleAfterOneSecondAndThenEnds()
+    {
+        var source = new ArraySampleProvider([1f], WaveFormat.CreateIeeeFloatWaveFormat(1_000, 1));
+        var processor = new PsychicDoubleVoiceEffectProcessor(new VoiceEffectsOptions
+        {
+            Enabled = true,
+            DelayMs = 100,
+            DelayMix = 0.20f,
+            ReverbMix = 0.20f,
+            ReverbDecay = 0.72f,
+            HighPassHz = 0,
+            LowPassHz = 0,
+            PitchShiftSemitones = 0,
+        });
+        var output = processor.Apply(source);
+        var samples = new List<float>();
+        var buffer = new float[128];
+        int read;
+        while ((read = output.Read(buffer, 0, buffer.Length)) > 0)
+        {
+            samples.AddRange(buffer.AsSpan(0, read).ToArray());
+        }
+
+        Assert.True(samples.Count > 1_000, $"Expected a tail longer than one second, got {samples.Count} samples.");
+        Assert.True(Math.Abs(samples[1_000]) > 0.00005f);
+        Assert.Equal(0f, samples[^1]);
     }
 
     private sealed class ArraySampleProvider : ISampleProvider

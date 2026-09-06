@@ -100,7 +100,7 @@ public sealed class ElevenLabsTextToSpeech : ITextToSpeech, IDisposable
             {
                 await preSpeechCueTask;
                 _log.Info($"playing dialogue {context.DialogueId} through the Windows default audio device");
-                await _audioPlayback.PlayAsync(filePath, cancellationToken);
+                await _audioPlayback.PlayAsync(filePath, _options.PlaybackVolume, cancellationToken);
                 _log.Info($"finished playing dialogue {context.DialogueId}");
             }
 

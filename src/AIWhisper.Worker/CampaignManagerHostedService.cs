@@ -97,7 +97,13 @@ public sealed class CampaignManagerHostedService : BackgroundService
         await LoadDevelopmentPromptsAsync(_parasiteDevelopmentOptions, rootLog, stoppingToken);
 
         using var aiRequestLog = CreateAiRequestLog(rootLog);
-        IAIDecisionService aiDecisionService = new OpenAIDecisionService(apiKey, _openAiOptions, rootLog, aiRequestLog, memoryPrompt);
+        IAIDecisionService aiDecisionService = new OpenAIDecisionService(
+            apiKey,
+            _openAiOptions,
+            rootLog,
+            aiRequestLog,
+            memoryPrompt.Content,
+            memoryPrompt.Id);
 
         _campaignManager = new CampaignManager(
             _workerOptions,
@@ -115,7 +121,8 @@ public sealed class CampaignManagerHostedService : BackgroundService
                 Path.Combine(campaignDirectory, _workerOptions.WorkerLogFileName),
                 alsoWriteToConsole: true),
             rootLog,
-            systemPrompt);
+            systemPrompt.Content,
+            systemPrompt.Id);
 
         await _campaignManager.StartAsync(stoppingToken);
 
@@ -156,7 +163,7 @@ public sealed class CampaignManagerHostedService : BackgroundService
         return new AiRequestFileLog(filePath);
     }
 
-    private static async Task<string> LoadPromptAsync(
+    private static async Task<LoadedPrompt> LoadPromptAsync(
         string configuredPath,
         string promptName,
         string fallback,
@@ -169,10 +176,12 @@ public sealed class CampaignManagerHostedService : BackgroundService
         if (!File.Exists(path))
         {
             log.Warn($"{promptName} prompt file was not found at '{path}' - using a built-in default prompt");
-            return fallback;
+            return new LoadedPrompt(fallback, $"built-in:{promptName}");
         }
 
-        return await File.ReadAllTextAsync(path, cancellationToken);
+        return new LoadedPrompt(
+            await File.ReadAllTextAsync(path, cancellationToken),
+            $"file:{Path.GetFileName(path)}");
     }
 
     private static async Task LoadDevelopmentPromptsAsync(
@@ -225,4 +234,6 @@ public sealed class CampaignManagerHostedService : BackgroundService
         value = string.Empty;
         return false;
     }
+
+    private sealed record LoadedPrompt(string Content, string Id);
 }

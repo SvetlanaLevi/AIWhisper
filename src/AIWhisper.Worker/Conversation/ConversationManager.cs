@@ -27,6 +27,7 @@ public sealed class ConversationManager
     private readonly CampaignMemoryStore _memoryStore;
     private readonly MemoryOptions _memoryOptions;
     private readonly ParasiteDevelopmentPolicy? _developmentPolicy;
+    private readonly string _systemPromptId;
 
     public ConversationManager(
         CampaignContext campaign,
@@ -38,7 +39,8 @@ public sealed class ConversationManager
         int maxHistoryEntries,
         CampaignMemoryStore memoryStore,
         MemoryOptions memoryOptions,
-        ParasiteDevelopmentPolicy? developmentPolicy = null)
+        ParasiteDevelopmentPolicy? developmentPolicy = null,
+        string systemPromptId = "base:unspecified")
     {
         _campaign = campaign;
         _contextBuilder = contextBuilder;
@@ -50,6 +52,7 @@ public sealed class ConversationManager
         _memoryStore = memoryStore;
         _memoryOptions = memoryOptions;
         _developmentPolicy = developmentPolicy;
+        _systemPromptId = systemPromptId;
     }
 
     public async Task ProcessAsync(DialogueState dialogue, CancellationToken cancellationToken)
@@ -72,7 +75,9 @@ public sealed class ConversationManager
             _systemPrompt,
             userPrompt,
             hasDevelopmentInstruction ? developmentPhase : null,
-            hasDevelopmentInstruction ? developmentPrompt : null);
+            hasDevelopmentInstruction ? developmentPrompt : null,
+            _systemPromptId,
+            instructions => _campaign.LastAppliedSystemInstructions = instructions);
         _log.Info($"dialogue {dialogue.DialogueId}: requesting an AI decision ({dialogue.Events.Count} event(s), {transcript.Length} transcript character(s))");
 
         AIDecision decision;

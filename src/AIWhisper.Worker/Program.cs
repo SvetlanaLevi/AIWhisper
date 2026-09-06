@@ -13,16 +13,18 @@ if (args is ["--play", var audioFile])
     }
 
     var voiceEffectsOptions = new VoiceEffectsOptions();
-    new ConfigurationBuilder()
+    var playbackConfiguration = new ConfigurationBuilder()
         .SetBasePath(AppContext.BaseDirectory)
         .AddJsonFile("appsettings.json", optional: true)
         .AddEnvironmentVariables()
-        .Build()
-        .GetSection("VoiceEffects")
-        .Bind(voiceEffectsOptions);
+        .Build();
+    playbackConfiguration.GetSection("VoiceEffects").Bind(voiceEffectsOptions);
+    var ttsOptions = new TtsOptions();
+    playbackConfiguration.GetSection("Tts").Bind(ttsOptions);
 
     Console.WriteLine($"Playing through the Windows default audio device: {fullPath}");
-    Console.WriteLine($"Voice effect: {(voiceEffectsOptions.Enabled ? $"enabled (shadow: {voiceEffectsOptions.DelayMs} ms, mix {voiceEffectsOptions.DelayMix:0.00}, pitch {voiceEffectsOptions.PitchShiftSemitones:+0.00;-0.00;0.00} semitones)" : "disabled")}");
+    Console.WriteLine($"Voice effect: {(voiceEffectsOptions.Enabled ? $"enabled (distance {voiceEffectsOptions.Distance:0.00}, shadow: {voiceEffectsOptions.DelayMs} ms, mix {voiceEffectsOptions.DelayMix:0.00}, pitch {voiceEffectsOptions.PitchShiftSemitones:+0.00;-0.00;0.00} semitones)" : "disabled")}");
+    Console.WriteLine($"Playback volume: {Math.Clamp(ttsOptions.PlaybackVolume, 0f, 1f):0.00}");
     var playback = new WindowsAudioPlayback(new PsychicDoubleVoiceEffectProcessor(voiceEffectsOptions));
     var cueOptions = LoadPreSpeechCueOptions();
     if (cueOptions.Enabled && !string.IsNullOrWhiteSpace(cueOptions.FilePath))
@@ -39,7 +41,7 @@ if (args is ["--play", var audioFile])
         }
     }
 
-    await playback.PlayAsync(fullPath, CancellationToken.None);
+    await playback.PlayAsync(fullPath, ttsOptions.PlaybackVolume, CancellationToken.None);
     Console.WriteLine("Playback finished.");
     return;
 }

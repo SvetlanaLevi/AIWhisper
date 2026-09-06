@@ -1,5 +1,6 @@
 using AIWhisper.Worker.Persistence;
 using AIWhisper.Worker.Development;
+using AIWhisper.Worker.Conversation;
 using Xunit;
 
 namespace AIWhisper.Worker.Tests;
@@ -35,7 +36,9 @@ public class CheckpointStoreTests : IDisposable
         {
             CampaignId = "C1",
             Files = { ["server.log"] = new FileCheckpoint { Position = 123, Length = 123 } },
+            Session = new SessionContext { Player = "Lana", Region = "SYS_CC_I" },
             Development = new ParasiteDevelopmentState { CurrentPhase = "Awakening", ReachedInRegion = "WLD_Main_A" },
+            LastAppliedSystemInstructions = ["file:ai-system-prompt.txt", "comment-frequency:Low"],
         };
 
         await store.SaveAsync(checkpoint, CancellationToken.None);
@@ -43,8 +46,11 @@ public class CheckpointStoreTests : IDisposable
 
         Assert.Equal("C1", reloaded.CampaignId);
         Assert.Equal(123, reloaded.Files["server.log"].Position);
+        Assert.Equal("Lana", reloaded.Session.Player);
+        Assert.Equal("SYS_CC_I", reloaded.Session.Region);
         Assert.Equal("Awakening", reloaded.Development?.CurrentPhase);
         Assert.Equal("WLD_Main_A", reloaded.Development?.ReachedInRegion);
+        Assert.Equal(["file:ai-system-prompt.txt", "comment-frequency:Low"], reloaded.LastAppliedSystemInstructions);
     }
 
     [Fact]

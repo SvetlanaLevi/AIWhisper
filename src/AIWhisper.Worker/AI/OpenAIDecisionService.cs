@@ -25,13 +25,15 @@ public sealed class OpenAIDecisionService : IAIDecisionService
     private readonly IWorkerLog _log;
     private readonly IAiRequestLog _aiRequestLog;
     private readonly string _memoryPromptTemplate;
+    private readonly string _memoryPromptId;
 
     public OpenAIDecisionService(
         string apiKey,
         OpenAIOptions options,
         IWorkerLog log,
         IAiRequestLog? aiRequestLog = null,
-        string? memoryPromptTemplate = null)
+        string? memoryPromptTemplate = null,
+        string memoryPromptId = "built-in:memory")
     {
         var credential = new ApiKeyCredential(apiKey);
         var clientOptions = new ResponsesClientOptions
@@ -44,10 +46,12 @@ public sealed class OpenAIDecisionService : IAIDecisionService
         _log = log;
         _aiRequestLog = aiRequestLog ?? NullAiRequestLog.Instance;
         _memoryPromptTemplate = memoryPromptTemplate ?? CampaignMemoryPrompt.DefaultTemplate;
+        _memoryPromptId = memoryPromptId;
     }
 
     public async Task<AIDecision> DecideAsync(AIRequestContext context, CancellationToken cancellationToken)
     {
+        var appliedSystemInstructions = new List<string> { context.BaseSystemPromptId };
         var schema = BinaryData.FromString("""
         {
           "type": "object",
@@ -78,14 +82,18 @@ public sealed class OpenAIDecisionService : IAIDecisionService
         {
             creationOptions.InputItems.Add(ResponseItem.CreateSystemMessageItem(
                 DevelopmentPromptFormatter.CreateSystemMessage(context.DevelopmentPhase, context.DevelopmentPrompt)));
+            appliedSystemInstructions.Add($"parasite-development:{context.DevelopmentPhase}");
         }
         creationOptions.InputItems.Add(ResponseItem.CreateSystemMessageItem(
             CommentFrequencyInstruction.Create(_options.CommentFrequency)));
+        appliedSystemInstructions.Add($"comment-frequency:{_options.CommentFrequency}");
         if (_options.SimplifyEnglishForNonNativeSpeakers)
         {
             creationOptions.InputItems.Add(ResponseItem.CreateSystemMessageItem(SimpleEnglishInstruction.Text));
+            appliedSystemInstructions.Add("simple-english");
         }
         creationOptions.InputItems.Add(ResponseItem.CreateUserMessageItem(context.UserPrompt));
+        context.SystemInstructionsApplied?.Invoke(appliedSystemInstructions.ToArray());
 
         var attempt = 0;
         string? responseText = null;
@@ -104,7 +112,7 @@ public sealed class OpenAIDecisionService : IAIDecisionService
                     throw new InvalidOperationException($"malformed structured AI response: {parseError}. Raw: {text}");
                 }
 
-                _aiRequestLog.Write("decision", _options.Model, context.UserPrompt, text, attempt, stopwatch);
+                _aiRequestLog.Write("decision", _options.Model, context.UserPrompt, text, attempt, stopwatch, systemInstructions: appliedSystemInstructions);
                 return decision;
             }
             catch (Exception ex) when (attempt <= _options.MaxRetries && IsTransient(ex))
@@ -115,7 +123,7 @@ public sealed class OpenAIDecisionService : IAIDecisionService
             }
             catch (Exception ex)
             {
-                _aiRequestLog.Write("decision", _options.Model, context.UserPrompt, responseText, attempt, stopwatch, ex);
+                _aiRequestLog.Write("decision", _options.Model, context.UserPrompt, responseText, attempt, stopwatch, ex, appliedSystemInstructions);
                 throw;
             }
         }
@@ -152,7 +160,9 @@ public sealed class OpenAIDecisionService : IAIDecisionService
         }
         """);
 
-        var prompt = CampaignMemoryPrompt.Render(_memoryPromptTemplate, currentMemory, transcript);
+        var systemInstruction = CampaignMemoryPrompt.RenderSystemInstruction(_memoryPromptTemplate);
+        var userContext = CampaignMemoryPrompt.RenderUserContext(currentMemory, transcript);
+        var appliedSystemInstructions = new[] { $"memory-updater:{_memoryPromptId}" };
 
         var creationOptions = new CreateResponseOptions
         {
@@ -166,7 +176,8 @@ public sealed class OpenAIDecisionService : IAIDecisionService
                     true),
             },
         };
-        creationOptions.InputItems.Add(ResponseItem.CreateUserMessageItem(prompt));
+        creationOptions.InputItems.Add(ResponseItem.CreateSystemMessageItem(systemInstruction));
+        creationOptions.InputItems.Add(ResponseItem.CreateUserMessageItem(userContext));
 
         var attempt = 0;
         string? responseText = null;
@@ -180,13 +191,13 @@ public sealed class OpenAIDecisionService : IAIDecisionService
                 var text = response.Value.GetOutputText();
                 responseText = text;
                 var update = JsonSerializer.Deserialize<CampaignMemoryUpdate>(text);
-                _aiRequestLog.Write("memory-update", _options.Model, prompt, text, attempt, stopwatch);
+                _aiRequestLog.Write("memory-update", _options.Model, userContext, text, attempt, stopwatch, systemInstructions: appliedSystemInstructions);
                 return update ?? new CampaignMemoryUpdate();
             }
             catch (JsonException ex)
             {
                 var parseException = new InvalidOperationException($"malformed structured campaign memory update: {ex.Message}", ex);
-                _aiRequestLog.Write("memory-update", _options.Model, prompt, responseText, attempt, stopwatch, parseException);
+                _aiRequestLog.Write("memory-update", _options.Model, userContext, responseText, attempt, stopwatch, parseException, appliedSystemInstructions);
                 throw parseException;
             }
             catch (Exception ex) when (attempt <= _options.MaxRetries && IsTransient(ex))
@@ -197,7 +208,7 @@ public sealed class OpenAIDecisionService : IAIDecisionService
             }
             catch (Exception ex)
             {
-                _aiRequestLog.Write("memory-update", _options.Model, prompt, responseText, attempt, stopwatch, ex);
+                _aiRequestLog.Write("memory-update", _options.Model, userContext, responseText, attempt, stopwatch, ex, appliedSystemInstructions);
                 throw;
             }
         }

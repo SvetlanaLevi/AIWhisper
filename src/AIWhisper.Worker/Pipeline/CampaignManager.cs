@@ -24,6 +24,7 @@ public sealed class CampaignManager : IAsyncDisposable
     private readonly Func<string, IWorkerLog> _logFactory;
     private readonly IWorkerLog _rootLog;
     private readonly string _systemPrompt;
+    private readonly string _systemPromptId;
 
     private readonly Dictionary<string, CampaignRuntime> _runtimes = new(StringComparer.Ordinal);
     private readonly object _gate = new();
@@ -40,7 +41,8 @@ public sealed class CampaignManager : IAsyncDisposable
         Func<string, ITextToSpeech> ttsFactory,
         Func<string, IWorkerLog> logFactory,
         IWorkerLog rootLog,
-        string systemPrompt)
+        string systemPrompt,
+        string systemPromptId = "base:unspecified")
     {
         _options = options;
         _memoryOptions = memoryOptions;
@@ -51,6 +53,7 @@ public sealed class CampaignManager : IAsyncDisposable
         _logFactory = logFactory;
         _rootLog = rootLog;
         _systemPrompt = systemPrompt;
+        _systemPromptId = systemPromptId;
     }
 
     public Task StartAsync(CancellationToken outerToken)
@@ -95,7 +98,8 @@ public sealed class CampaignManager : IAsyncDisposable
                 campaignLog,
                 _aiDecisionService,
                 _ttsFactory(audioDirectory),
-                _systemPrompt);
+                _systemPrompt,
+                _systemPromptId);
 
             _runtimes[campaignId] = runtime;
         }

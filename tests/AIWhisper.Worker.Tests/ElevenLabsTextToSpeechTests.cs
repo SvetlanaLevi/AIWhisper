@@ -76,6 +76,7 @@ public sealed class ElevenLabsTextToSpeechTests
                     Voice = "voice",
                     ApiKeyEnvironmentVariable = keyVariable,
                     PlayOnWindows = true,
+                    PlaybackVolume = 0.65f,
                 },
                 outputDirectory,
                 new NullWorkerLog(),
@@ -97,7 +98,7 @@ public sealed class ElevenLabsTextToSpeechTests
             Assert.Collection(
                 playback.Calls,
                 call => Assert.Equal(("cue", cuePath, 0.4f, 650), call),
-                call => Assert.Equal(("speech", result.FilePath, 1.0f, 0), call));
+                call => Assert.Equal(("speech", result.FilePath, 0.65f, 0), call));
         }
         finally
         {
@@ -142,9 +143,9 @@ public sealed class ElevenLabsTextToSpeechTests
     {
         public List<(string Type, string Path, float Volume, int DurationMs)> Calls { get; } = [];
 
-        public Task PlayAsync(string filePath, CancellationToken cancellationToken)
+        public Task PlayAsync(string filePath, float volume, CancellationToken cancellationToken)
         {
-            Calls.Add(("speech", filePath, 1.0f, 0));
+            Calls.Add(("speech", filePath, volume, 0));
             return Task.CompletedTask;
         }
 
