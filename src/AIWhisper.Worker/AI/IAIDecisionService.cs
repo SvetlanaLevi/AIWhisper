@@ -21,5 +21,6 @@ public interface IAIDecisionService
     Task<CampaignMemoryUpdate> UpdateCampaignMemoryAsync(
         CampaignMemory currentMemory,
         string transcript,
+        string dialogueId,
         CancellationToken cancellationToken);
 }

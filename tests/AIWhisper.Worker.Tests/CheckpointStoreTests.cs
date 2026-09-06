@@ -37,7 +37,12 @@ public class CheckpointStoreTests : IDisposable
             CampaignId = "C1",
             Files = { ["server.log"] = new FileCheckpoint { Position = 123, Length = 123 } },
             Session = new SessionContext { Player = "Lana", Region = "SYS_CC_I" },
-            Development = new ParasiteDevelopmentState { CurrentPhase = "Awakening", ReachedInRegion = "WLD_Main_A" },
+            Development = new ParasiteDevelopmentState
+            {
+                CurrentPhase = "Awakening",
+                ReachedInRegion = "WLD_Main_A",
+                DeliveredOneShots = ["awakening-intro"],
+            },
             LastAppliedSystemInstructions = ["file:ai-system-prompt.txt", "minimum-reaction-level:Critical"],
         };
 
@@ -50,7 +55,27 @@ public class CheckpointStoreTests : IDisposable
         Assert.Equal("SYS_CC_I", reloaded.Session.Region);
         Assert.Equal("Awakening", reloaded.Development?.CurrentPhase);
         Assert.Equal("WLD_Main_A", reloaded.Development?.ReachedInRegion);
+        Assert.Contains("awakening-intro", reloaded.Development!.DeliveredOneShots);
         Assert.Equal(["file:ai-system-prompt.txt", "minimum-reaction-level:Critical"], reloaded.LastAppliedSystemInstructions);
+    }
+
+    [Fact]
+    public async Task LegacyCheckpointWithoutDeliveredOneShots_LoadsEmptyCollection()
+    {
+        await File.WriteAllTextAsync(StorePath, """
+        {
+          "CampaignId": "C1",
+          "Development": {
+            "CurrentPhase": "Awakening",
+            "ReachedInRegion": "WLD_Main_A"
+          }
+        }
+        """);
+
+        var checkpoint = await new CheckpointStore(StorePath).LoadAsync(CancellationToken.None);
+
+        Assert.NotNull(checkpoint.Development);
+        Assert.Empty(checkpoint.Development.DeliveredOneShots);
     }
 
     [Fact]

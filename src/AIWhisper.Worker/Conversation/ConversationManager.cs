@@ -28,6 +28,7 @@ public sealed class ConversationManager
     private readonly MemoryOptions _memoryOptions;
     private readonly ParasiteDevelopmentPolicy? _developmentPolicy;
     private readonly string _systemPromptId;
+    private readonly Func<CancellationToken, Task>? _saveCheckpoint;
 
     public ConversationManager(
         CampaignContext campaign,
@@ -40,7 +41,8 @@ public sealed class ConversationManager
         CampaignMemoryStore memoryStore,
         MemoryOptions memoryOptions,
         ParasiteDevelopmentPolicy? developmentPolicy = null,
-        string systemPromptId = "base:unspecified")
+        string systemPromptId = "base:unspecified",
+        Func<CancellationToken, Task>? saveCheckpoint = null)
     {
         _campaign = campaign;
         _contextBuilder = contextBuilder;
@@ -53,6 +55,7 @@ public sealed class ConversationManager
         _memoryOptions = memoryOptions;
         _developmentPolicy = developmentPolicy;
         _systemPromptId = systemPromptId;
+        _saveCheckpoint = saveCheckpoint;
     }
 
     public async Task ProcessAsync(DialogueState dialogue, CancellationToken cancellationToken)
@@ -61,6 +64,14 @@ public sealed class ConversationManager
         if (string.IsNullOrWhiteSpace(transcript))
         {
             _log.Info($"dialogue {dialogue.DialogueId} completed with no line/choice content - skipping AI");
+            return;
+        }
+
+        if (_developmentPolicy?.TryGetPendingIntroduction(
+                _campaign.Development,
+                out var introduction) == true)
+        {
+            await PlayPhaseIntroductionAsync(dialogue, transcript, introduction, cancellationToken);
             return;
         }
 
@@ -139,6 +150,31 @@ public sealed class ConversationManager
             aiText));
     }
 
+    private async Task PlayPhaseIntroductionAsync(
+        DialogueState dialogue,
+        string transcript,
+        PhaseIntroductionOptions introduction,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var speaker = dialogue.Speakers.Count > 0 ? dialogue.Speakers[0].Name : null;
+            var voiceContext = new VoiceContext(dialogue.CampaignId, dialogue.DialogueId, speaker, null);
+            await _textToSpeech.SynthesizeAsync(introduction.Text, voiceContext, cancellationToken);
+
+            _campaign.Development.DeliveredOneShots.Add(introduction.Id);
+            RecordHistory(dialogue, transcript, "speak", introduction.Text);
+            if (_saveCheckpoint is not null) await _saveCheckpoint(cancellationToken);
+            _log.Info($"campaign {_campaign.CampaignId}: delivered phase introduction '{introduction.Id}'");
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _log.Error($"campaign {_campaign.CampaignId}: failed to deliver phase introduction '{introduction.Id}' - it will be retried", ex);
+        }
+
+        await UpdateCampaignMemoryAsync(dialogue, transcript, cancellationToken);
+    }
+
     private async Task UpdateCampaignMemoryAsync(
         DialogueState dialogue,
         string transcript,
@@ -149,8 +185,9 @@ public sealed class ConversationManager
             var update = await _aiDecisionService.UpdateCampaignMemoryAsync(
                 _campaign.Memory,
                 transcript,
+                dialogue.DialogueId,
                 cancellationToken);
-            if (!CampaignMemoryMerger.Apply(_campaign.Memory, update, _memoryOptions))
+            if (!CampaignMemoryMerger.Apply(_campaign.Memory, update, _memoryOptions, dialogue.DialogueId))
             {
                 _log.Info($"campaign {_campaign.CampaignId}: memory update for dialogue {dialogue.DialogueId} contained no changes");
                 return;

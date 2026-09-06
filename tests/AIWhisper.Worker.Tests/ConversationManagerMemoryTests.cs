@@ -106,6 +106,7 @@ public sealed class ConversationManagerMemoryTests : IDisposable
         public Task<CampaignMemoryUpdate> UpdateCampaignMemoryAsync(
             CampaignMemory currentMemory,
             string transcript,
+            string dialogueId,
             CancellationToken cancellationToken)
         {
             MemoryUpdateCalls++;
@@ -140,6 +141,7 @@ public sealed class ConversationManagerMemoryTests : IDisposable
         public async Task<CampaignMemoryUpdate> UpdateCampaignMemoryAsync(
             CampaignMemory currentMemory,
             string transcript,
+            string dialogueId,
             CancellationToken cancellationToken)
         {
             await AllowMemoryUpdate.Task.WaitAsync(cancellationToken);

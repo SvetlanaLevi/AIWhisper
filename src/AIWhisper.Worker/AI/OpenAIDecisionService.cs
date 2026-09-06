@@ -156,6 +156,7 @@ public sealed class OpenAIDecisionService : IAIDecisionService
     public async Task<CampaignMemoryUpdate> UpdateCampaignMemoryAsync(
         CampaignMemory currentMemory,
         string transcript,
+        string dialogueId,
         CancellationToken cancellationToken)
     {
         var schema = BinaryData.FromString("""
@@ -163,7 +164,9 @@ public sealed class OpenAIDecisionService : IAIDecisionService
           "type": "object",
           "properties": {
             "UpdatedSummary": { "type": ["string", "null"] },
+            "UpdatedCurrentSituation": { "type": ["string", "null"] },
             "ImportantEventsToAdd": { "type": "array", "items": { "type": "string" } },
+            "ImportantEventsToRemove": { "type": "array", "items": { "type": "string" } },
             "RelationshipUpdates": {
               "type": "array",
               "items": {
@@ -176,16 +179,19 @@ public sealed class OpenAIDecisionService : IAIDecisionService
                 "additionalProperties": false
               }
             },
+            "RelationshipsToRemove": { "type": "array", "items": { "type": "string" } },
             "PlayerTraitsToAdd": { "type": "array", "items": { "type": "string" } },
-            "RunningJokesToAdd": { "type": "array", "items": { "type": "string" } }
+            "PlayerTraitsToRemove": { "type": "array", "items": { "type": "string" } },
+            "RunningJokesToAdd": { "type": "array", "items": { "type": "string" } },
+            "RunningJokesToRemove": { "type": "array", "items": { "type": "string" } }
           },
-          "required": ["UpdatedSummary", "ImportantEventsToAdd", "RelationshipUpdates", "PlayerTraitsToAdd", "RunningJokesToAdd"],
+          "required": ["UpdatedSummary", "UpdatedCurrentSituation", "ImportantEventsToAdd", "ImportantEventsToRemove", "RelationshipUpdates", "RelationshipsToRemove", "PlayerTraitsToAdd", "PlayerTraitsToRemove", "RunningJokesToAdd", "RunningJokesToRemove"],
           "additionalProperties": false
         }
         """);
 
         var systemInstruction = CampaignMemoryPrompt.RenderSystemInstruction(_memoryPromptTemplate);
-        var userContext = CampaignMemoryPrompt.RenderUserContext(currentMemory, transcript);
+        var userContext = CampaignMemoryPrompt.RenderUserContext(currentMemory, transcript, dialogueId);
         var appliedSystemInstructions = new[] { $"memory-updater:{_memoryPromptId}" };
 
         var creationOptions = new CreateResponseOptions

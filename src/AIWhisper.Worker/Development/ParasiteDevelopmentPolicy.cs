@@ -57,6 +57,20 @@ public sealed class ParasiteDevelopmentPolicy
         return true;
     }
 
+    public bool TryGetPendingIntroduction(
+        ParasiteDevelopmentState state,
+        out PhaseIntroductionOptions introduction)
+    {
+        introduction = new PhaseIntroductionOptions();
+        if (!Enabled || string.IsNullOrWhiteSpace(state.CurrentPhase)) return false;
+        if (!TryGetValue(_options.PhaseIntroductions, state.CurrentPhase, out var configured)) return false;
+        if (string.IsNullOrWhiteSpace(configured.Id) || string.IsNullOrWhiteSpace(configured.Text)) return false;
+        if (state.DeliveredOneShots.Contains(configured.Id)) return false;
+
+        introduction = configured;
+        return true;
+    }
+
     private bool TryGetPhase(string? requestedName, out string name, out int index, out string? warning)
     {
         name = string.Empty;
@@ -91,6 +105,21 @@ public sealed class ParasiteDevelopmentPolicy
         }
 
         value = string.Empty;
+        return false;
+    }
+
+    private static bool TryGetValue<T>(IReadOnlyDictionary<string, T> values, string key, out T value)
+    {
+        foreach (var pair in values)
+        {
+            if (string.Equals(pair.Key, key, StringComparison.OrdinalIgnoreCase))
+            {
+                value = pair.Value;
+                return true;
+            }
+        }
+
+        value = default!;
         return false;
     }
 }

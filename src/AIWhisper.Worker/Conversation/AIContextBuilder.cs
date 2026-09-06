@@ -2,6 +2,7 @@ using System.Net;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using AIWhisper.Worker.Configuration;
 using AIWhisper.Worker.EventProcessing;
 using AIWhisper.Worker.Knowledge;
 
@@ -17,10 +18,12 @@ public sealed class AIContextBuilder
 {
     private static readonly Regex TagRegex = new("<[^>]+>", RegexOptions.Compiled);
     private readonly ICharacterKnowledgeProvider? _characterKnowledge;
+    private readonly MemoryOptions _memoryOptions;
 
-    public AIContextBuilder(ICharacterKnowledgeProvider? characterKnowledge = null)
+    public AIContextBuilder(ICharacterKnowledgeProvider? characterKnowledge = null, MemoryOptions? memoryOptions = null)
     {
         _characterKnowledge = characterKnowledge;
+        _memoryOptions = memoryOptions ?? new MemoryOptions();
     }
 
     public string BuildUserPrompt(CampaignContext campaign, DialogueState dialogue, int maxHistoryEntries)
@@ -35,7 +38,7 @@ public sealed class AIContextBuilder
             sb.AppendLine();
         }
 
-        AppendCampaignMemory(sb, campaign.Memory);
+        AppendCampaignMemory(sb, campaign.Memory, dialogue);
         AppendCharacterKnowledge(sb, dialogue);
 
         if (campaign.History.Count > 0)
@@ -60,9 +63,10 @@ public sealed class AIContextBuilder
         return sb.ToString();
     }
 
-    private static void AppendCampaignMemory(StringBuilder sb, CampaignMemory memory)
+    private void AppendCampaignMemory(StringBuilder sb, CampaignMemory memory, DialogueState dialogue)
     {
         if (string.IsNullOrWhiteSpace(memory.Summary) &&
+            string.IsNullOrWhiteSpace(memory.CurrentSituation) &&
             memory.ImportantEvents.Count == 0 &&
             memory.Relationships.Count == 0 &&
             memory.PlayerTraits.Count == 0 &&
@@ -73,10 +77,22 @@ public sealed class AIContextBuilder
 
         sb.AppendLine("CAMPAIGN MEMORY");
         if (!string.IsNullOrWhiteSpace(memory.Summary)) sb.AppendLine($"Summary: {memory.Summary}");
-        AppendList(sb, "Relationships", memory.Relationships.OrderBy(pair => pair.Key).Select(pair => $"{pair.Key}: {pair.Value}"));
-        AppendList(sb, "Player tendencies", memory.PlayerTraits);
-        AppendList(sb, "Important past events", memory.ImportantEvents);
-        AppendList(sb, "Running jokes", memory.RunningJokes);
+        if (!string.IsNullOrWhiteSpace(memory.CurrentSituation)) sb.AppendLine($"Current situation: {memory.CurrentSituation}");
+        var currentSpeakers = dialogue.Events
+            .Where(evt => evt.Type == "dialogue.line")
+            .Select(evt => GetString(evt.Data, "speaker"))
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var relationships = memory.Relationships
+            .OrderByDescending(pair => currentSpeakers.Contains(pair.Key))
+            .ThenBy(pair => pair.Key)
+            .Take(Math.Max(0, _memoryOptions.MaxContextRelationships))
+            .Select(pair => $"{pair.Key}: {pair.Value}");
+
+        AppendList(sb, "Relationships", relationships);
+        AppendList(sb, "Player tendencies", memory.PlayerTraits.TakeLast(Math.Max(0, _memoryOptions.MaxContextPlayerTraits)));
+        AppendList(sb, "Important past events", memory.ImportantEvents.TakeLast(Math.Max(0, _memoryOptions.MaxContextImportantEvents)));
+        AppendList(sb, "Running jokes", memory.RunningJokes.TakeLast(Math.Max(0, _memoryOptions.MaxContextRunningJokes)));
         sb.AppendLine();
     }
 

@@ -75,4 +75,75 @@ public sealed class CampaignMemoryMergerTests
         Assert.Equal("New summary", memory.Summary);
         Assert.Equal(["two", "three"], memory.ImportantEvents);
     }
+
+    [Fact]
+    public void Apply_CanCorrectFactAndTracksItsSourceDialogue()
+    {
+        var memory = new CampaignMemory { ImportantEvents = ["Kagha killed a child named Teela."] };
+        var update = new CampaignMemoryUpdate
+        {
+            ImportantEventsToRemove = ["Kagha killed a child named Teela."],
+            ImportantEventsToAdd = ["Kagha's snake Teela killed Arabella."],
+        };
+
+        Assert.True(CampaignMemoryMerger.Apply(memory, update, Options, "733"));
+        Assert.Equal(["Kagha's snake Teela killed Arabella."], memory.ImportantEvents);
+        Assert.Equal(["733"], memory.ImportantEventSources["Kagha's snake Teela killed Arabella."]);
+    }
+
+    [Fact]
+    public void Apply_PromotesTraitOnlyAfterEvidenceFromTwoDifferentDialogues()
+    {
+        var memory = new CampaignMemory();
+        var observation = new CampaignMemoryUpdate { PlayerTraitsToAdd = ["Escalates failed diplomacy into violence."] };
+
+        Assert.True(CampaignMemoryMerger.Apply(memory, observation, Options, "736"));
+        Assert.Empty(memory.PlayerTraits);
+        Assert.Single(memory.PlayerTraitCandidates);
+
+        Assert.False(CampaignMemoryMerger.Apply(memory, observation, Options, "736"));
+        Assert.Empty(memory.PlayerTraits);
+
+        Assert.True(CampaignMemoryMerger.Apply(memory, observation, Options, "812"));
+        Assert.Equal(["Escalates failed diplomacy into violence."], memory.PlayerTraits);
+        Assert.Empty(memory.PlayerTraitCandidates);
+        Assert.Equal(["736", "812"], memory.PlayerTraitSources["Escalates failed diplomacy into violence."]);
+    }
+
+    [Fact]
+    public void Apply_CanRemoveRelationshipsTraitsAndJokes()
+    {
+        var memory = new CampaignMemory
+        {
+            Relationships = { ["Astarion"] = "Trusted ally" },
+            PlayerTraits = ["Always cruel"],
+            RunningJokes = ["Spoons"],
+        };
+        var update = new CampaignMemoryUpdate
+        {
+            RelationshipsToRemove = ["astarion"],
+            PlayerTraitsToRemove = ["always cruel"],
+            RunningJokesToRemove = ["spoons"],
+        };
+
+        Assert.True(CampaignMemoryMerger.Apply(memory, update, Options, "900"));
+        Assert.Empty(memory.Relationships);
+        Assert.Empty(memory.PlayerTraits);
+        Assert.Empty(memory.RunningJokes);
+    }
+
+    [Fact]
+    public void Apply_CurrentSituationCanChangeAndBeClearedWithoutReplacingSummary()
+    {
+        var memory = new CampaignMemory { Summary = "Durable overview", CurrentSituation = "Guards are approaching" };
+
+        Assert.True(CampaignMemoryMerger.Apply(
+            memory,
+            new CampaignMemoryUpdate { UpdatedCurrentSituation = "" },
+            Options,
+            "901"));
+
+        Assert.Equal("Durable overview", memory.Summary);
+        Assert.Empty(memory.CurrentSituation);
+    }
 }

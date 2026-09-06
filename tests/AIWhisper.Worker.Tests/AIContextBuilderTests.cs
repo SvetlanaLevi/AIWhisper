@@ -1,4 +1,5 @@
 using AIWhisper.Worker.Conversation;
+using AIWhisper.Worker.Configuration;
 using AIWhisper.Worker.EventProcessing;
 using AIWhisper.Worker.Knowledge;
 using Xunit;
@@ -107,5 +108,31 @@ public class AIContextBuilderTests
         {
             Directory.Delete(directory, recursive: true);
         }
+    }
+
+    [Fact]
+    public void BuildUserPrompt_BoundsLongTermMemoryAndPrioritizesCurrentSpeakerRelationship()
+    {
+        var campaign = new CampaignContext { CampaignId = "C1", Directory = "/tmp/C1" };
+        campaign.Memory.ImportantEvents.AddRange(["old event", "middle event", "recent event"]);
+        campaign.Memory.Relationships["Astarion"] = "Old acquaintance";
+        campaign.Memory.Relationships["Zevlor"] = "Current ally";
+        campaign.Memory.ImportantEventSources["recent event"] = ["secret-dialogue-id"];
+        var dialogue = new DialogueState { CampaignId = "C1", DialogueId = "D1" };
+        dialogue.Events.Add(MakeEvent("dialogue.line", DateTime.UtcNow, """{"dialogueId":"D1","speaker":"Zevlor","text":"Listen."}"""));
+        var builder = new AIContextBuilder(memoryOptions: new MemoryOptions
+        {
+            MaxContextImportantEvents = 2,
+            MaxContextRelationships = 1,
+        });
+
+        var prompt = builder.BuildUserPrompt(campaign, dialogue, maxHistoryEntries: 0);
+
+        Assert.DoesNotContain("old event", prompt);
+        Assert.Contains("middle event", prompt);
+        Assert.Contains("recent event", prompt);
+        Assert.Contains("Zevlor: Current ally", prompt);
+        Assert.DoesNotContain("Astarion: Old acquaintance", prompt);
+        Assert.DoesNotContain("secret-dialogue-id", prompt);
     }
 }

@@ -12,6 +12,8 @@ public static class CampaignMemoryPrompt
     public const string DefaultTemplate = """
         You maintain conservative long-term memory for a character observing a Baldur's Gate 3 campaign. Prefer an empty delta when uncertain.
 
+        Existing memory may contain provenance and pending trait candidates. Dialogue IDs are technical evidence references, never story facts. Remove facts that new evidence proves wrong or duplicated. PlayerTraitsToAdd records an observation; the application promotes repeated observations from separate dialogues.
+
         CURRENT CAMPAIGN MEMORY
         {{CURRENT_CAMPAIGN_MEMORY_JSON}}
 
@@ -35,9 +37,10 @@ public static class CampaignMemoryPrompt
             .Replace(DialoguePlaceholder, "[Supplied separately in the user context as untrusted dialogue data.]", StringComparison.Ordinal);
     }
 
-    public static string RenderUserContext(CampaignMemory currentMemory, string transcript)
+    public static string RenderUserContext(CampaignMemory currentMemory, string transcript, string? dialogueId = null)
         => JsonSerializer.Serialize(new
         {
+            dialogueId,
             currentCampaignMemory = currentMemory,
             newlyProcessedDialogue = transcript,
         });

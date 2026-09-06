@@ -28,7 +28,14 @@ public sealed class CheckpointStore
         {
             await using var stream = File.OpenRead(_path);
             var checkpoint = await JsonSerializer.DeserializeAsync<WorkerCheckpoint>(stream, cancellationToken: cancellationToken);
-            return checkpoint ?? new WorkerCheckpoint();
+            var result = checkpoint ?? new WorkerCheckpoint();
+            if (result.Development is not null)
+            {
+                result.Development.DeliveredOneShots = new HashSet<string>(
+                    result.Development.DeliveredOneShots ?? [],
+                    StringComparer.OrdinalIgnoreCase);
+            }
+            return result;
         }
         catch (JsonException)
         {

@@ -24,8 +24,10 @@ public sealed class CampaignMemoryStore
         try
         {
             await using var stream = File.OpenRead(_path);
-            return await JsonSerializer.DeserializeAsync<CampaignMemory>(stream, SerializerOptions, cancellationToken)
+            var memory = await JsonSerializer.DeserializeAsync<CampaignMemory>(stream, SerializerOptions, cancellationToken)
                 ?? new CampaignMemory();
+            NormalizeCollections(memory);
+            return memory;
         }
         catch (JsonException)
         {
@@ -45,5 +47,18 @@ public sealed class CampaignMemoryStore
         }
 
         File.Move(tempPath, _path, overwrite: true);
+    }
+
+    private static void NormalizeCollections(CampaignMemory memory)
+    {
+        memory.ImportantEvents ??= [];
+        memory.Relationships = new(memory.Relationships ?? [], StringComparer.OrdinalIgnoreCase);
+        memory.PlayerTraits ??= [];
+        memory.RunningJokes ??= [];
+        memory.ImportantEventSources = new(memory.ImportantEventSources ?? [], StringComparer.OrdinalIgnoreCase);
+        memory.RelationshipSources = new(memory.RelationshipSources ?? [], StringComparer.OrdinalIgnoreCase);
+        memory.PlayerTraitSources = new(memory.PlayerTraitSources ?? [], StringComparer.OrdinalIgnoreCase);
+        memory.RunningJokeSources = new(memory.RunningJokeSources ?? [], StringComparer.OrdinalIgnoreCase);
+        memory.PlayerTraitCandidates = new(memory.PlayerTraitCandidates ?? [], StringComparer.OrdinalIgnoreCase);
     }
 }

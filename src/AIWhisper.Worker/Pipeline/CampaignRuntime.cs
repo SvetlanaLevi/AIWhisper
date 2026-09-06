@@ -94,7 +94,7 @@ public sealed class CampaignRuntime : IAsyncDisposable
 
         _conversationManager = new ConversationManager(
             _campaignContext,
-            new AIContextBuilder(characterKnowledge),
+            new AIContextBuilder(characterKnowledge, memoryOptions),
             aiDecisionService,
             textToSpeech,
             log,
@@ -103,7 +103,8 @@ public sealed class CampaignRuntime : IAsyncDisposable
             _memoryStore,
             _memoryOptions,
             _developmentPolicy,
-            systemPromptId);
+            systemPromptId,
+            SaveCheckpointAsync);
     }
 
     public async Task StartAsync(CancellationToken outerToken)

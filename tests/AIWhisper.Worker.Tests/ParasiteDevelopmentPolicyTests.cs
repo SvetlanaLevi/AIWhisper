@@ -101,6 +101,26 @@ public sealed class ParasiteDevelopmentPolicyTests
         Assert.Equal("RemovedPhase", state.CurrentPhase);
     }
 
+    [Fact]
+    public void PendingIntroduction_IsReturnedOnceAndMatchedCaseInsensitively()
+    {
+        var options = CreateOptions();
+        options.PhaseIntroductions["Awakening"] = new PhaseIntroductionOptions
+        {
+            Id = "awakening-intro",
+            Text = "Something is wrong.",
+        };
+        var policy = new ParasiteDevelopmentPolicy(options);
+        var state = new ParasiteDevelopmentState { CurrentPhase = "awakening" };
+
+        Assert.True(policy.TryGetPendingIntroduction(state, out var introduction));
+        Assert.Equal("awakening-intro", introduction.Id);
+
+        state.DeliveredOneShots.Add("AWAKENING-INTRO");
+
+        Assert.False(policy.TryGetPendingIntroduction(state, out _));
+    }
+
     private static ParasiteDevelopmentPolicy CreatePolicy() => new(CreateOptions());
 
     private static ParasiteDevelopmentOptions CreateOptions() => new()
