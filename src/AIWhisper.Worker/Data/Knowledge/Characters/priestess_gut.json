@@ -1,0 +1,15 @@
+{
+  "name": "Priestess Gut",
+  "category": "act1_npc",
+  "race": "Goblin",
+  "class": null,
+  "role": "Goblin priestess",
+  "summary": "A spiritual leader at the goblin camp who presents herself as confident, authoritative, and capable of helping with unusual afflictions.",
+  "personality": [
+    "authoritative",
+    "confident",
+    "intrusive",
+    "cunning",
+    "zealous"
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "name": "Volo",
+  "category": "recurring_npc",
+  "race": "Human",
+  "class": null,
+  "role": "Writer and storyteller",
+  "summary": "A famous traveling writer whose curiosity and enthusiasm are often accompanied by embellishment and self-importance.",
+  "personality": [
+    "verbose",
+    "curious",
+    "theatrical",
+    "self-important",
+    "enthusiastic"
+  ]
+}

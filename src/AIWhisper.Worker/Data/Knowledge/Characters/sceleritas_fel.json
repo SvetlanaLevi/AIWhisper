@@ -1,0 +1,15 @@
+{
+  "name": "Sceleritas Fel",
+  "category": "dark_urge_npc",
+  "race": null,
+  "class": null,
+  "role": "Mysterious butler",
+  "summary": "A strange and obsequious butler who appears to know far more about the Dark Urge than he initially explains.",
+  "personality": [
+    "obsequious",
+    "macabre",
+    "enthusiastic",
+    "cryptic",
+    "devoted"
+  ]
+}

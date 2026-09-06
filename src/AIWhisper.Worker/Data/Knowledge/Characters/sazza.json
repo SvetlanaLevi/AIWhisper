@@ -1,0 +1,15 @@
+{
+  "name": "Sazza",
+  "category": "act1_npc",
+  "race": "Goblin",
+  "class": null,
+  "role": "Goblin prisoner",
+  "summary": "A captured goblin who remains cocky and defiant even when her situation gives her little reason for confidence.",
+  "personality": [
+    "cocky",
+    "defiant",
+    "crude",
+    "opportunistic",
+    "talkative"
+  ]
+}

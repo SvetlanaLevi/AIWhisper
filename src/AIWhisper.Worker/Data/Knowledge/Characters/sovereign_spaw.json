@@ -1,0 +1,15 @@
+{
+  "name": "Sovereign Spaw",
+  "category": "act1_npc",
+  "race": "Myconid",
+  "class": null,
+  "role": "Myconid sovereign",
+  "summary": "The sovereign of a myconid colony in the Underdark, focused on protecting its circle from threats.",
+  "personality": [
+    "communal",
+    "cautious",
+    "protective",
+    "measured",
+    "alien"
+  ]
+}

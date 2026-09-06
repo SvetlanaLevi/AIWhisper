@@ -1,0 +1,15 @@
+{
+  "name": "Halsin",
+  "category": "companion",
+  "race": "Wood Elf",
+  "class": "Druid",
+  "role": "Archdruid; companion",
+  "summary": "An experienced druid and healer who feels a strong responsibility toward nature and those under his protection.",
+  "personality": [
+    "calm",
+    "protective",
+    "patient",
+    "nature-focused",
+    "mature"
+  ]
+}

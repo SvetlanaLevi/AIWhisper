@@ -1,0 +1,15 @@
+{
+  "name": "Mayrina",
+  "category": "act1_npc",
+  "race": "Human",
+  "class": null,
+  "role": "Young widow",
+  "summary": "A distressed young woman whose grief and desperation have pushed her toward a dangerous attempt to change her circumstances.",
+  "personality": [
+    "grieving",
+    "desperate",
+    "stubborn",
+    "emotional",
+    "determined"
+  ]
+}

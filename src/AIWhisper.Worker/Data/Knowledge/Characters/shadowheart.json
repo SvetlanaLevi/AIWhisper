@@ -1,0 +1,15 @@
+{
+  "name": "Shadowheart",
+  "category": "companion",
+  "race": "High Half-Elf",
+  "class": "Cleric",
+  "role": "Origin companion",
+  "summary": "A guarded cleric who values privacy and approaches unfamiliar people and situations with caution.",
+  "personality": [
+    "secretive",
+    "pragmatic",
+    "dry-witted",
+    "independent",
+    "cautious"
+  ]
+}

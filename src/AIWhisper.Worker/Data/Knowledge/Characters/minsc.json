@@ -1,0 +1,15 @@
+{
+  "name": "Minsc",
+  "category": "companion",
+  "race": "Human",
+  "class": "Ranger",
+  "role": "Companion",
+  "summary": "A famously enthusiastic adventurer with a straightforward heroic worldview and immense loyalty to his friends.",
+  "personality": [
+    "boisterous",
+    "heroic",
+    "literal",
+    "loyal",
+    "enthusiastic"
+  ]
+}

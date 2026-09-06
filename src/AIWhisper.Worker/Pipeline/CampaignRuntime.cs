@@ -4,6 +4,7 @@ using AIWhisper.Worker.Conversation;
 using AIWhisper.Worker.EventProcessing;
 using AIWhisper.Worker.FileMonitoring;
 using AIWhisper.Worker.Logging;
+using AIWhisper.Worker.Knowledge;
 using AIWhisper.Worker.Persistence;
 using AIWhisper.Worker.Tts;
 
@@ -39,6 +40,7 @@ public sealed class CampaignRuntime : IAsyncDisposable
         string campaignDirectory,
         WorkerOptions options,
         MemoryOptions memoryOptions,
+        ICharacterKnowledgeProvider characterKnowledge,
         IWorkerLog log,
         IAIDecisionService aiDecisionService,
         ITextToSpeech textToSpeech,
@@ -73,7 +75,7 @@ public sealed class CampaignRuntime : IAsyncDisposable
 
         _conversationManager = new ConversationManager(
             _campaignContext,
-            new AIContextBuilder(),
+            new AIContextBuilder(characterKnowledge),
             aiDecisionService,
             textToSpeech,
             log,

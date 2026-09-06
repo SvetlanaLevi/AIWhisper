@@ -1,0 +1,15 @@
+{
+  "name": "Mol",
+  "category": "recurring_npc",
+  "race": "Tiefling",
+  "class": null,
+  "role": "Leader of the tiefling children",
+  "summary": "A sharp young tiefling who leads a group of refugee children and approaches survival with confidence and streetwise pragmatism.",
+  "personality": [
+    "clever",
+    "ambitious",
+    "streetwise",
+    "confident",
+    "pragmatic"
+  ]
+}

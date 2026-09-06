@@ -1,0 +1,15 @@
+{
+  "name": "Nere",
+  "category": "act1_npc",
+  "race": "Drow",
+  "class": null,
+  "role": "True Soul",
+  "summary": "An arrogant drow authority figure accustomed to obedience and quick to answer frustration with cruelty.",
+  "personality": [
+    "arrogant",
+    "cruel",
+    "imperious",
+    "impatient",
+    "self-important"
+  ]
+}

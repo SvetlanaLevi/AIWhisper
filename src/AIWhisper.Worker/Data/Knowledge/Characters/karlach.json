@@ -1,0 +1,15 @@
+{
+  "name": "Karlach",
+  "category": "companion",
+  "race": "Zariel Tiefling",
+  "class": "Barbarian",
+  "role": "Origin companion",
+  "summary": "An exuberant warrior newly enjoying ordinary freedom after years spent fighting in Avernus.",
+  "personality": [
+    "warm",
+    "energetic",
+    "impulsive",
+    "loyal",
+    "direct"
+  ]
+}

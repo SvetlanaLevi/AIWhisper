@@ -1,0 +1,15 @@
+{
+  "name": "Arabella",
+  "category": "recurring_npc",
+  "race": "Tiefling",
+  "class": null,
+  "role": "Tiefling child",
+  "summary": "A bold young tiefling refugee with a mischievous streak and a tendency to get herself into dangerous situations.",
+  "personality": [
+    "bold",
+    "curious",
+    "mischievous",
+    "resilient",
+    "independent"
+  ]
+}

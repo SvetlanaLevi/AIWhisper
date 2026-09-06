@@ -1,0 +1,15 @@
+{
+  "name": "Dror Ragzlin",
+  "category": "act1_npc",
+  "race": "Hobgoblin",
+  "class": "Barbarian",
+  "role": "Goblin camp leader",
+  "summary": "A powerful hobgoblin commander who leads through intimidation, physical strength, and religious conviction.",
+  "personality": [
+    "aggressive",
+    "commanding",
+    "zealous",
+    "intimidating",
+    "direct"
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "name": "Minthara",
+  "category": "companion",
+  "race": "Lolth-Sworn Drow",
+  "class": "Paladin",
+  "role": "Potential companion",
+  "summary": "A commanding drow accustomed to hierarchy, danger, and exercising power decisively.",
+  "personality": [
+    "ruthless",
+    "regal",
+    "pragmatic",
+    "perceptive",
+    "commanding"
+  ]
+}

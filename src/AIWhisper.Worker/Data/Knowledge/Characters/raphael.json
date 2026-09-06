@@ -1,0 +1,15 @@
+{
+  "name": "Raphael",
+  "category": "recurring_npc",
+  "race": "Cambion",
+  "class": null,
+  "role": "Infernal dealmaker",
+  "summary": "A polished and theatrical dealmaker who prefers manipulation, temptation, and carefully constructed bargains.",
+  "personality": [
+    "theatrical",
+    "manipulative",
+    "cunning",
+    "self-assured",
+    "eloquent"
+  ]
+}

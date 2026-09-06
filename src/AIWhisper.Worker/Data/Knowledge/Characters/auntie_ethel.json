@@ -1,0 +1,15 @@
+{
+  "name": "Auntie Ethel",
+  "category": "act1_npc",
+  "race": null,
+  "class": null,
+  "role": "Trader",
+  "summary": "An unusually perceptive elderly-seeming trader who presents herself as warm, helpful, and interested in other people's troubles.",
+  "personality": [
+    "folksy",
+    "nosy",
+    "flattering",
+    "sharp",
+    "transactional"
+  ]
+}

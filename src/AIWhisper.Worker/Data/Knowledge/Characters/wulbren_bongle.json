@@ -1,0 +1,15 @@
+{
+  "name": "Wulbren Bongle",
+  "category": "recurring_npc",
+  "race": "Deep Gnome",
+  "class": null,
+  "role": "Ironhand gnome leader",
+  "summary": "A forceful deep gnome leader intensely committed to his people and their cause, with little patience for obstacles or sentiment.",
+  "personality": [
+    "driven",
+    "abrasive",
+    "stubborn",
+    "pragmatic",
+    "intense"
+  ]
+}

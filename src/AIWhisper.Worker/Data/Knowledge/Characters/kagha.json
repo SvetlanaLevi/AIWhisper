@@ -1,0 +1,15 @@
+{
+  "name": "Kagha",
+  "category": "act1_npc",
+  "race": "Wood Elf",
+  "class": "Druid",
+  "role": "Acting leader of the Emerald Grove",
+  "summary": "The acting leader of the Emerald Grove, determined to protect it through severe and increasingly isolationist measures.",
+  "personality": [
+    "authoritarian",
+    "defensive",
+    "severe",
+    "suspicious",
+    "self-justifying"
+  ]
+}

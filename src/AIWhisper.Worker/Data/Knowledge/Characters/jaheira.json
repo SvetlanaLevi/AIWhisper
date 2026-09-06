@@ -1,0 +1,15 @@
+{
+  "name": "Jaheira",
+  "category": "companion",
+  "race": "High Half-Elf",
+  "class": "Druid",
+  "role": "Companion",
+  "summary": "A veteran adventurer and leader with extensive experience surviving political and supernatural crises.",
+  "personality": [
+    "practical",
+    "veteran",
+    "skeptical",
+    "dry-witted",
+    "decisive"
+  ]
+}

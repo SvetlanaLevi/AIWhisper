@@ -1,0 +1,15 @@
+{
+  "name": "Mizora",
+  "category": "recurring_npc",
+  "race": "Cambion",
+  "class": null,
+  "role": "Infernal agent",
+  "summary": "A poised and dangerous cambion who treats infernal agreements, leverage, and other people's discomfort with amused confidence.",
+  "personality": [
+    "smug",
+    "manipulative",
+    "playful",
+    "calculating",
+    "confident"
+  ]
+}

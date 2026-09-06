@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using AIWhisper.Worker.EventProcessing;
+using AIWhisper.Worker.Knowledge;
 
 namespace AIWhisper.Worker.Conversation;
 
@@ -15,6 +16,12 @@ namespace AIWhisper.Worker.Conversation;
 public sealed class AIContextBuilder
 {
     private static readonly Regex TagRegex = new("<[^>]+>", RegexOptions.Compiled);
+    private readonly ICharacterKnowledgeProvider? _characterKnowledge;
+
+    public AIContextBuilder(ICharacterKnowledgeProvider? characterKnowledge = null)
+    {
+        _characterKnowledge = characterKnowledge;
+    }
 
     public string BuildUserPrompt(CampaignContext campaign, DialogueState dialogue, int maxHistoryEntries)
     {
@@ -29,6 +36,7 @@ public sealed class AIContextBuilder
         }
 
         AppendCampaignMemory(sb, campaign.Memory);
+        AppendCharacterKnowledge(sb, dialogue);
 
         if (campaign.History.Count > 0)
         {
@@ -79,6 +87,24 @@ public sealed class AIContextBuilder
 
         sb.AppendLine(heading + ":");
         foreach (var value in values) sb.AppendLine("- " + value);
+    }
+
+    private void AppendCharacterKnowledge(StringBuilder sb, DialogueState dialogue)
+    {
+        if (_characterKnowledge is null) return;
+
+        var names = dialogue.Events
+            .Where(evt => evt.Type == "dialogue.line")
+            .Select(evt => GetString(evt.Data, "speaker"))
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Select(name => name!.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase);
+        var matches = names.Select(_characterKnowledge.Find).Where(character => character is not null).Cast<CharacterKnowledge>().ToList();
+        if (matches.Count == 0) return;
+
+        sb.AppendLine("CHARACTER KNOWLEDGE");
+        foreach (var character in matches) sb.AppendLine(CharacterKnowledgeFormatter.Format(character));
+        sb.AppendLine();
     }
 
     public string BuildTranscript(DialogueState dialogue)

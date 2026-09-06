@@ -1,0 +1,15 @@
+{
+  "name": "Isobel",
+  "category": "act2_npc",
+  "race": "Half-Elf",
+  "class": "Cleric",
+  "role": "Selûnite cleric",
+  "summary": "A devoted cleric of Selûne who remains compassionate and composed while protecting others in an exceptionally dangerous place.",
+  "personality": [
+    "compassionate",
+    "resolute",
+    "warm",
+    "devout",
+    "courageous"
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "name": "Rolan",
+  "category": "recurring_npc",
+  "race": "Tiefling",
+  "class": "Wizard",
+  "role": "Aspiring wizard",
+  "summary": "An ambitious tiefling wizard eager to prove his talent and secure a better future for himself and those close to him.",
+  "personality": [
+    "proud",
+    "ambitious",
+    "sarcastic",
+    "protective",
+    "insecure"
+  ]
+}

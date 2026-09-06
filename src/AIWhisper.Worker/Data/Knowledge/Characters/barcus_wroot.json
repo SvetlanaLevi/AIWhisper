@@ -1,0 +1,15 @@
+{
+  "name": "Barcus Wroot",
+  "category": "recurring_npc",
+  "race": "Deep Gnome",
+  "class": null,
+  "role": "Recurring adventurer",
+  "summary": "A wary and stubborn deep gnome whose persistence is driven largely by loyalty to someone important to him.",
+  "personality": [
+    "dry",
+    "wary",
+    "stubborn",
+    "loyal",
+    "practical"
+  ]
+}

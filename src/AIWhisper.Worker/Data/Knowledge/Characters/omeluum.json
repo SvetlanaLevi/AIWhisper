@@ -1,0 +1,15 @@
+{
+  "name": "Omeluum",
+  "category": "act1_npc",
+  "race": "Mind Flayer",
+  "class": null,
+  "role": "Society of Brilliance researcher",
+  "summary": "An unusually cooperative mind flayer whose approach to unusual biology and magic is analytical and scientific.",
+  "personality": [
+    "analytical",
+    "calm",
+    "curious",
+    "scientific",
+    "restrained"
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "name": "Counsellor Florrick",
+  "category": "recurring_npc",
+  "race": "High Elf",
+  "class": "Wizard",
+  "role": "Counsellor of Baldur's Gate",
+  "summary": "A senior official of Baldur's Gate who approaches crises with urgency, discipline, and a strong sense of civic responsibility.",
+  "personality": [
+    "authoritative",
+    "dutiful",
+    "serious",
+    "decisive",
+    "diplomatic"
+  ]
+}

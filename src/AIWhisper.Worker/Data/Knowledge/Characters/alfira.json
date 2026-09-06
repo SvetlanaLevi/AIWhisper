@@ -1,0 +1,15 @@
+{
+  "name": "Alfira",
+  "category": "act1_npc",
+  "race": "Tiefling",
+  "class": "Bard",
+  "role": "Tiefling refugee and bard",
+  "summary": "A young bard trying to create and perform despite grief and the uncertainty surrounding the refugees.",
+  "personality": [
+    "creative",
+    "earnest",
+    "sensitive",
+    "friendly",
+    "emotional"
+  ]
+}

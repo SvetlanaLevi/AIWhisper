@@ -1,0 +1,15 @@
+{
+  "name": "Wyll",
+  "category": "companion",
+  "race": "Human",
+  "class": "Warlock",
+  "role": "Origin companion",
+  "summary": "A celebrated adventurer who strives to live up to the heroic image of the Blade of Frontiers.",
+  "personality": [
+    "heroic",
+    "idealistic",
+    "courteous",
+    "protective",
+    "dramatic"
+  ]
+}

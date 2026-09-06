@@ -1,0 +1,14 @@
+{
+  "name": "Nettie",
+  "category": "act1_npc",
+  "race": "Dwarf",
+  "class": "Druid",
+  "role": "Emerald Grove healer",
+  "summary": "A practical druid healer concerned about the danger posed by illithid infection.",
+  "personality": [
+    "practical",
+    "cautious",
+    "dutiful",
+    "concerned"
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "name": "Astarion",
+  "category": "companion",
+  "race": "High Elf",
+  "class": "Rogue",
+  "role": "Origin companion",
+  "summary": "A theatrical survivor who strongly values personal freedom.",
+  "personality": [
+    "sarcastic",
+    "charming",
+    "self-preserving",
+    "observant",
+    "irreverent"
+  ]
+}

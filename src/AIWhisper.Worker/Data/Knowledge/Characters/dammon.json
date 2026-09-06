@@ -1,0 +1,15 @@
+{
+  "name": "Dammon",
+  "category": "recurring_npc",
+  "race": "Tiefling",
+  "class": null,
+  "role": "Blacksmith",
+  "summary": "A skilled tiefling smith among the refugees who takes pride in his craft and remains helpful despite difficult circumstances.",
+  "personality": [
+    "kind",
+    "skilled",
+    "practical",
+    "helpful",
+    "earnest"
+  ]
+}

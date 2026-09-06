@@ -1,6 +1,7 @@
 using AIWhisper.Worker.AI;
 using AIWhisper.Worker.Configuration;
 using AIWhisper.Worker.Logging;
+using AIWhisper.Worker.Knowledge;
 using AIWhisper.Worker.Pipeline;
 using AIWhisper.Worker.Tts;
 using Microsoft.Extensions.Hosting;
@@ -23,6 +24,7 @@ public sealed class CampaignManagerHostedService : BackgroundService
     private readonly VoiceEffectsOptions _voiceEffectsOptions;
     private readonly PreSpeechCueOptions _preSpeechCueOptions;
     private readonly MemoryOptions _memoryOptions;
+    private readonly ICharacterKnowledgeProvider _characterKnowledge;
     private CampaignManager? _campaignManager;
 
     private const string DefaultSystemPrompt =
@@ -37,7 +39,8 @@ public sealed class CampaignManagerHostedService : BackgroundService
         IOptions<TtsOptions> ttsOptions,
         IOptions<VoiceEffectsOptions> voiceEffectsOptions,
         IOptions<PreSpeechCueOptions> preSpeechCueOptions,
-        IOptions<MemoryOptions> memoryOptions)
+        IOptions<MemoryOptions> memoryOptions,
+        ICharacterKnowledgeProvider characterKnowledge)
     {
         _workerOptions = workerOptions.Value;
         _openAiOptions = openAiOptions.Value;
@@ -45,6 +48,7 @@ public sealed class CampaignManagerHostedService : BackgroundService
         _voiceEffectsOptions = voiceEffectsOptions.Value;
         _preSpeechCueOptions = preSpeechCueOptions.Value;
         _memoryOptions = memoryOptions.Value;
+        _characterKnowledge = characterKnowledge;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -88,6 +92,7 @@ public sealed class CampaignManagerHostedService : BackgroundService
         _campaignManager = new CampaignManager(
             _workerOptions,
             _memoryOptions,
+            _characterKnowledge,
             aiDecisionService,
             audioDirectory => new ElevenLabsTextToSpeech(
                 _ttsOptions,

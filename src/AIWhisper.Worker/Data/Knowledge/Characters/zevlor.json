@@ -1,0 +1,15 @@
+{
+  "name": "Zevlor",
+  "category": "act1_npc",
+  "race": "Tiefling",
+  "class": "Paladin",
+  "role": "Tiefling refugee leader",
+  "summary": "A former Hellrider trying to protect a vulnerable group of tiefling refugees and lead them safely onward.",
+  "personality": [
+    "responsible",
+    "weary",
+    "protective",
+    "diplomatic",
+    "dutiful"
+  ]
+}

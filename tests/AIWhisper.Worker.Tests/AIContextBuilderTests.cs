@@ -1,5 +1,6 @@
 using AIWhisper.Worker.Conversation;
 using AIWhisper.Worker.EventProcessing;
+using AIWhisper.Worker.Knowledge;
 using Xunit;
 
 namespace AIWhisper.Worker.Tests;
@@ -77,5 +78,34 @@ public class AIContextBuilderTests
         Assert.Contains("RECENT CONTEXT", prompt);
         Assert.True(prompt.IndexOf("CAMPAIGN MEMORY", StringComparison.Ordinal) < prompt.IndexOf("RECENT CONTEXT", StringComparison.Ordinal));
         Assert.Contains("CURRENT EVENT", prompt);
+    }
+
+    [Fact]
+    public void BuildUserPrompt_IncludesKnowledgeOnlyForKnownLineSpeakers()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), $"AIWhisper.Tests.{Guid.NewGuid():N}");
+        Directory.CreateDirectory(directory);
+
+        try
+        {
+            File.WriteAllText(Path.Combine(directory, "astarion.json"), """
+                { "name": "Astarion", "category": "companion", "race": "High Elf", "class": "Rogue", "role": "Origin companion", "summary": "A theatrical survivor.", "personality": ["sarcastic"] }
+                """);
+            var builder = new AIContextBuilder(new CharacterKnowledgeProvider(directory));
+            var campaign = new CampaignContext { CampaignId = "C1", Directory = "/tmp/C1" };
+            var dialogue = new DialogueState { CampaignId = "C1", DialogueId = "D1" };
+            dialogue.Events.Add(MakeEvent("dialogue.line", DateTime.UtcNow, """{"dialogueId":"D1","speaker":" Astarion ","text":"Hello"}"""));
+            dialogue.Events.Add(MakeEvent("dialogue.line", DateTime.UtcNow, """{"dialogueId":"D1","speaker":"Unknown","text":"Hello"}"""));
+
+            var prompt = builder.BuildUserPrompt(campaign, dialogue, maxHistoryEntries: 0);
+
+            Assert.Contains("CHARACTER KNOWLEDGE", prompt);
+            Assert.Contains("Astarion — High Elf Rogue, Origin companion.", prompt);
+            Assert.DoesNotContain("Unknown —", prompt);
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
     }
 }

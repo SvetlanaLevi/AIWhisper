@@ -1,0 +1,15 @@
+{
+  "name": "Blurg",
+  "category": "recurring_npc",
+  "race": "Hobgoblin",
+  "class": null,
+  "role": "Society of Brilliance scholar",
+  "summary": "A scholarly hobgoblin associated with the Society of Brilliance who studies the Underdark with unusual patience and intellectual curiosity.",
+  "personality": [
+    "scholarly",
+    "curious",
+    "polite",
+    "rational",
+    "open-minded"
+  ]
+}

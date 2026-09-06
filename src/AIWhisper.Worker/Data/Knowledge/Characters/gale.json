@@ -1,0 +1,15 @@
+{
+  "name": "Gale",
+  "category": "companion",
+  "race": "Human",
+  "class": "Wizard",
+  "role": "Origin companion",
+  "summary": "A gifted Waterdhavian wizard whose confidence and ambition are matched by a genuine fascination with magic.",
+  "personality": [
+    "eloquent",
+    "scholarly",
+    "ambitious",
+    "witty",
+    "romantic"
+  ]
+}

@@ -2,6 +2,7 @@ using AIWhisper.Worker.AI;
 using AIWhisper.Worker.Configuration;
 using AIWhisper.Worker.FileMonitoring;
 using AIWhisper.Worker.Logging;
+using AIWhisper.Worker.Knowledge;
 using AIWhisper.Worker.Tts;
 
 namespace AIWhisper.Worker.Pipeline;
@@ -16,6 +17,7 @@ public sealed class CampaignManager : IAsyncDisposable
 {
     private readonly WorkerOptions _options;
     private readonly MemoryOptions _memoryOptions;
+    private readonly ICharacterKnowledgeProvider _characterKnowledge;
     private readonly IAIDecisionService _aiDecisionService;
     private readonly Func<string, ITextToSpeech> _ttsFactory;
     private readonly Func<string, IWorkerLog> _logFactory;
@@ -31,6 +33,7 @@ public sealed class CampaignManager : IAsyncDisposable
     public CampaignManager(
         WorkerOptions options,
         MemoryOptions memoryOptions,
+        ICharacterKnowledgeProvider characterKnowledge,
         IAIDecisionService aiDecisionService,
         Func<string, ITextToSpeech> ttsFactory,
         Func<string, IWorkerLog> logFactory,
@@ -39,6 +42,7 @@ public sealed class CampaignManager : IAsyncDisposable
     {
         _options = options;
         _memoryOptions = memoryOptions;
+        _characterKnowledge = characterKnowledge;
         _aiDecisionService = aiDecisionService;
         _ttsFactory = ttsFactory;
         _logFactory = logFactory;
@@ -83,6 +87,7 @@ public sealed class CampaignManager : IAsyncDisposable
                 campaignDirectory,
                 _options,
                 _memoryOptions,
+                _characterKnowledge,
                 campaignLog,
                 _aiDecisionService,
                 _ttsFactory(audioDirectory),

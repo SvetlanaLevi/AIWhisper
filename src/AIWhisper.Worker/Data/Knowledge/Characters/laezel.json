@@ -1,0 +1,15 @@
+{
+  "name": "Lae'zel",
+  "category": "companion",
+  "race": "Githyanki",
+  "class": "Fighter",
+  "role": "Origin companion",
+  "summary": "A disciplined githyanki warrior raised to value strength, efficiency, and martial achievement.",
+  "personality": [
+    "blunt",
+    "martial",
+    "proud",
+    "impatient",
+    "pragmatic"
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "name": "Balthazar",
+  "category": "act2_npc",
+  "race": "Undead",
+  "class": "Wizard",
+  "role": "Necromancer",
+  "summary": "An unsettling necromancer who treats death, corpses, and magical experimentation with casual professional interest.",
+  "personality": [
+    "macabre",
+    "arrogant",
+    "clinical",
+    "cruel",
+    "eccentric"
+  ]
+}

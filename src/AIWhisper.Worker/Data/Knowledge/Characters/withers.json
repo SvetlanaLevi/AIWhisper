@@ -1,0 +1,15 @@
+{
+  "name": "Withers",
+  "category": "camp_follower",
+  "race": "Undead",
+  "class": null,
+  "role": "Mysterious camp follower",
+  "summary": "A mysterious undead figure whose calm detachment suggests little concern for ordinary mortal urgency.",
+  "personality": [
+    "cryptic",
+    "terse",
+    "ancient",
+    "calm",
+    "detached"
+  ]
+}

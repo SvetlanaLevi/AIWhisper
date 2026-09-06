@@ -1,0 +1,15 @@
+{
+  "name": "Sovereign Glut",
+  "category": "act1_npc",
+  "race": "Myconid",
+  "class": null,
+  "role": "Displaced myconid sovereign",
+  "summary": "A displaced myconid sovereign whose colony was destroyed, leaving him isolated and consumed by the consequences of that loss.",
+  "personality": [
+    "bitter",
+    "vengeful",
+    "isolated",
+    "proud",
+    "resentful"
+  ]
+}
