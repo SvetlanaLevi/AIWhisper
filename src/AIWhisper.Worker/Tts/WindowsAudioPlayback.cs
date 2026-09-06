@@ -65,4 +65,5 @@ public sealed class WindowsAudioPlayback : IAudioPlayback
             Thread.Sleep(100);
         }
     }
+
 }

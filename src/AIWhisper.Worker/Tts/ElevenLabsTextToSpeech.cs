@@ -65,17 +65,24 @@ public sealed class ElevenLabsTextToSpeech : ITextToSpeech, IDisposable
 
         var endpoint = $"/v1/text-to-speech/{Uri.EscapeDataString(voice)}?output_format={Uri.EscapeDataString(_options.OutputFormat)}";
         _log.Info($"requesting ElevenLabs speech for dialogue {context.DialogueId} ({text.Length} character(s), model '{_options.Model}', format '{_options.OutputFormat}')");
-        using var response = await _httpClient.PostAsJsonAsync(endpoint, requestBody, cancellationToken);
+        using var request = new HttpRequestMessage(HttpMethod.Post, endpoint)
+        {
+            Content = JsonContent.Create(requestBody),
+        };
+        using var response = await _httpClient.SendAsync(
+            request,
+            HttpCompletionOption.ResponseHeadersRead,
+            cancellationToken);
         if (!response.IsSuccessStatusCode)
         {
             var error = await response.Content.ReadAsStringAsync(cancellationToken);
             throw new HttpRequestException($"ElevenLabs TTS request failed with {(int)response.StatusCode}: {GetErrorMessage(error)}", null, response.StatusCode);
         }
 
-        var bytes = await response.Content.ReadAsByteArrayAsync(cancellationToken);
-
         var fileName = BuildFileName(context);
         var filePath = Path.Combine(_audioDirectory, fileName);
+
+        var bytes = await response.Content.ReadAsByteArrayAsync(cancellationToken);
         await File.WriteAllBytesAsync(filePath, bytes, cancellationToken);
 
         _log.Info($"synthesized audio for dialogue {context.DialogueId} -> {fileName}");
