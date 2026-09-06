@@ -20,11 +20,11 @@ public sealed class CampaignManagerHostedService : BackgroundService
 {
     private readonly WorkerOptions _workerOptions;
     private readonly OpenAIOptions _openAiOptions;
+    private readonly AiRequestLoggingOptions _aiRequestLoggingOptions;
     private readonly TtsOptions _ttsOptions;
     private readonly VoiceEffectsOptions _voiceEffectsOptions;
     private readonly PreSpeechCueOptions _preSpeechCueOptions;
     private readonly MemoryOptions _memoryOptions;
-    private readonly ICharacterKnowledgeProvider _characterKnowledge;
     private CampaignManager? _campaignManager;
 
     private const string DefaultSystemPrompt =
@@ -36,19 +36,19 @@ public sealed class CampaignManagerHostedService : BackgroundService
     public CampaignManagerHostedService(
         IOptions<WorkerOptions> workerOptions,
         IOptions<OpenAIOptions> openAiOptions,
+        IOptions<AiRequestLoggingOptions> aiRequestLoggingOptions,
         IOptions<TtsOptions> ttsOptions,
         IOptions<VoiceEffectsOptions> voiceEffectsOptions,
         IOptions<PreSpeechCueOptions> preSpeechCueOptions,
-        IOptions<MemoryOptions> memoryOptions,
-        ICharacterKnowledgeProvider characterKnowledge)
+        IOptions<MemoryOptions> memoryOptions)
     {
         _workerOptions = workerOptions.Value;
         _openAiOptions = openAiOptions.Value;
+        _aiRequestLoggingOptions = aiRequestLoggingOptions.Value;
         _ttsOptions = ttsOptions.Value;
         _voiceEffectsOptions = voiceEffectsOptions.Value;
         _preSpeechCueOptions = preSpeechCueOptions.Value;
         _memoryOptions = memoryOptions.Value;
-        _characterKnowledge = characterKnowledge;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -68,6 +68,9 @@ public sealed class CampaignManagerHostedService : BackgroundService
             alsoWriteToConsole: true);
 
         rootLog.Info($"AIWhisper is monitoring '{_workerOptions.RootDirectory}' for campaign folders");
+        var characterKnowledge = new CharacterKnowledgeProvider(
+            Path.Combine(AppContext.BaseDirectory, "Data", "Knowledge", "Characters"),
+            rootLog);
 
         var apiKey = Environment.GetEnvironmentVariable("OPENAI_API_KEY");
         if (string.IsNullOrWhiteSpace(apiKey))
@@ -87,12 +90,13 @@ public sealed class CampaignManagerHostedService : BackgroundService
             systemPrompt = DefaultSystemPrompt;
         }
 
-        IAIDecisionService aiDecisionService = new OpenAIDecisionService(apiKey, _openAiOptions, rootLog);
+        using var aiRequestLog = CreateAiRequestLog(rootLog);
+        IAIDecisionService aiDecisionService = new OpenAIDecisionService(apiKey, _openAiOptions, rootLog, aiRequestLog);
 
         _campaignManager = new CampaignManager(
             _workerOptions,
             _memoryOptions,
-            _characterKnowledge,
+            characterKnowledge,
             aiDecisionService,
             audioDirectory => new ElevenLabsTextToSpeech(
                 _ttsOptions,
@@ -125,5 +129,23 @@ public sealed class CampaignManagerHostedService : BackgroundService
             await _campaignManager.DisposeAsync();
         }
         await base.StopAsync(cancellationToken);
+    }
+
+    private IAiRequestLog CreateAiRequestLog(IWorkerLog rootLog)
+    {
+        if (!_aiRequestLoggingOptions.Enabled)
+        {
+            return NullAiRequestLog.Instance;
+        }
+
+        if (string.IsNullOrWhiteSpace(_aiRequestLoggingOptions.FileName) || Path.IsPathRooted(_aiRequestLoggingOptions.FileName))
+        {
+            rootLog.Warn("AiRequestLogging:FileName must be a relative file name; AI request logging is disabled");
+            return NullAiRequestLog.Instance;
+        }
+
+        var filePath = Path.Combine(_workerOptions.RootDirectory, _aiRequestLoggingOptions.FileName);
+        rootLog.Info($"AI request diagnostic logging is enabled: '{filePath}' (system prompts are excluded)");
+        return new AiRequestFileLog(filePath);
     }
 }

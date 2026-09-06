@@ -64,38 +64,54 @@ public sealed class ElevenLabsTextToSpeech : ITextToSpeech, IDisposable
         };
 
         var endpoint = $"/v1/text-to-speech/{Uri.EscapeDataString(voice)}?output_format={Uri.EscapeDataString(_options.OutputFormat)}";
+        // The cue is independent from the network request. Starting it now hides its
+        // duration behind ElevenLabs synthesis, while awaiting it below still keeps
+        // the actual spoken line from overlapping the cue.
+        var preSpeechCueTask = _audioPlayback is null
+            ? Task.CompletedTask
+            : PlayPreSpeechCueAsync(cancellationToken);
+
         _log.Info($"requesting ElevenLabs speech for dialogue {context.DialogueId} ({text.Length} character(s), model '{_options.Model}', format '{_options.OutputFormat}')");
-        using var request = new HttpRequestMessage(HttpMethod.Post, endpoint)
+        try
         {
-            Content = JsonContent.Create(requestBody),
-        };
-        using var response = await _httpClient.SendAsync(
-            request,
-            HttpCompletionOption.ResponseHeadersRead,
-            cancellationToken);
-        if (!response.IsSuccessStatusCode)
-        {
-            var error = await response.Content.ReadAsStringAsync(cancellationToken);
-            throw new HttpRequestException($"ElevenLabs TTS request failed with {(int)response.StatusCode}: {GetErrorMessage(error)}", null, response.StatusCode);
+            using var request = new HttpRequestMessage(HttpMethod.Post, endpoint)
+            {
+                Content = JsonContent.Create(requestBody),
+            };
+            using var response = await _httpClient.SendAsync(
+                request,
+                HttpCompletionOption.ResponseHeadersRead,
+                cancellationToken);
+            if (!response.IsSuccessStatusCode)
+            {
+                var error = await response.Content.ReadAsStringAsync(cancellationToken);
+                throw new HttpRequestException($"ElevenLabs TTS request failed with {(int)response.StatusCode}: {GetErrorMessage(error)}", null, response.StatusCode);
+            }
+
+            var fileName = BuildFileName(context);
+            var filePath = Path.Combine(_audioDirectory, fileName);
+
+            var bytes = await response.Content.ReadAsByteArrayAsync(cancellationToken);
+            await File.WriteAllBytesAsync(filePath, bytes, cancellationToken);
+
+            _log.Info($"synthesized audio for dialogue {context.DialogueId} -> {fileName}");
+
+            if (_audioPlayback is not null)
+            {
+                await preSpeechCueTask;
+                _log.Info($"playing dialogue {context.DialogueId} through the Windows default audio device");
+                await _audioPlayback.PlayAsync(filePath, cancellationToken);
+                _log.Info($"finished playing dialogue {context.DialogueId}");
+            }
+
+            return new AudioResult(filePath, GetFileExtension(_options.OutputFormat));
         }
-
-        var fileName = BuildFileName(context);
-        var filePath = Path.Combine(_audioDirectory, fileName);
-
-        var bytes = await response.Content.ReadAsByteArrayAsync(cancellationToken);
-        await File.WriteAllBytesAsync(filePath, bytes, cancellationToken);
-
-        _log.Info($"synthesized audio for dialogue {context.DialogueId} -> {fileName}");
-
-        if (_audioPlayback is not null)
+        catch
         {
-            await PlayPreSpeechCueAsync(cancellationToken);
-            _log.Info($"playing dialogue {context.DialogueId} through the Windows default audio device");
-            await _audioPlayback.PlayAsync(filePath, cancellationToken);
-            _log.Info($"finished playing dialogue {context.DialogueId}");
+            // Do not leave a failed cue task unobserved if ElevenLabs fails first.
+            await preSpeechCueTask;
+            throw;
         }
-
-        return new AudioResult(filePath, GetFileExtension(_options.OutputFormat));
     }
 
     private async Task PlayPreSpeechCueAsync(CancellationToken cancellationToken)

@@ -68,7 +68,8 @@ public sealed class ElevenLabsTextToSpeechTests
         try
         {
             var playback = new RecordingPlayback();
-            using var client = new HttpClient(new RecordingHandler()) { BaseAddress = new Uri("https://api.elevenlabs.io") };
+            using var client = new HttpClient(new RecordingHandler(() =>
+                Assert.Contains(playback.Calls, call => call.Type == "cue"))) { BaseAddress = new Uri("https://api.elevenlabs.io") };
             using var sut = new ElevenLabsTextToSpeech(
                 new TtsOptions
                 {
@@ -109,7 +110,7 @@ public sealed class ElevenLabsTextToSpeechTests
         }
     }
 
-    private sealed class RecordingHandler : HttpMessageHandler
+    private sealed class RecordingHandler(Action? onRequest = null) : HttpMessageHandler
     {
         public Uri? RequestUri { get; private set; }
         public string? ApiKey { get; private set; }
@@ -120,6 +121,7 @@ public sealed class ElevenLabsTextToSpeechTests
             RequestUri = request.RequestUri;
             ApiKey = request.Headers.GetValues("xi-api-key").Single();
             Body = JsonDocument.Parse(await request.Content!.ReadAsStringAsync(cancellationToken));
+            onRequest?.Invoke();
 
             return new HttpResponseMessage(HttpStatusCode.OK)
             {

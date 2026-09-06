@@ -1,4 +1,5 @@
 using System.ClientModel;
+using System.Diagnostics;
 using System.Text.Json;
 using AIWhisper.Worker.Configuration;
 using AIWhisper.Worker.Conversation;
@@ -21,8 +22,9 @@ public sealed class OpenAIDecisionService : IAIDecisionService
     private readonly ResponsesClient _client;
     private readonly OpenAIOptions _options;
     private readonly IWorkerLog _log;
+    private readonly IAiRequestLog _aiRequestLog;
 
-    public OpenAIDecisionService(string apiKey, OpenAIOptions options, IWorkerLog log)
+    public OpenAIDecisionService(string apiKey, OpenAIOptions options, IWorkerLog log, IAiRequestLog? aiRequestLog = null)
     {
         var credential = new ApiKeyCredential(apiKey);
         var clientOptions = new ResponsesClientOptions
@@ -33,6 +35,7 @@ public sealed class OpenAIDecisionService : IAIDecisionService
         _client = new ResponsesClient(credential, clientOptions);
         _options = options;
         _log = log;
+        _aiRequestLog = aiRequestLog ?? NullAiRequestLog.Instance;
     }
 
     public async Task<AIDecision> DecideAsync(AIRequestContext context, CancellationToken cancellationToken)
@@ -72,6 +75,8 @@ public sealed class OpenAIDecisionService : IAIDecisionService
         creationOptions.InputItems.Add(ResponseItem.CreateUserMessageItem(context.UserPrompt));
 
         var attempt = 0;
+        string? responseText = null;
+        var stopwatch = Stopwatch.StartNew();
         while (true)
         {
             attempt++;
@@ -85,6 +90,7 @@ public sealed class OpenAIDecisionService : IAIDecisionService
                     throw new InvalidOperationException($"malformed structured AI response: {parseError}. Raw: {text}");
                 }
 
+                _aiRequestLog.Write("decision", _options.Model, context.UserPrompt, text, attempt, stopwatch);
                 return decision;
             }
             catch (Exception ex) when (attempt <= _options.MaxRetries && IsTransient(ex))
@@ -92,6 +98,11 @@ public sealed class OpenAIDecisionService : IAIDecisionService
                 var delay = TimeSpan.FromMilliseconds(_options.RetryBaseDelayMs * Math.Pow(2, attempt - 1));
                 _log.Warn($"OpenAI request failed (attempt {attempt}/{_options.MaxRetries}), retrying in {delay}: {ex.Message}");
                 await Task.Delay(delay, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _aiRequestLog.Write("decision", _options.Model, context.UserPrompt, responseText, attempt, stopwatch, ex);
+                throw;
             }
         }
     }
@@ -158,6 +169,8 @@ public sealed class OpenAIDecisionService : IAIDecisionService
         creationOptions.InputItems.Add(ResponseItem.CreateUserMessageItem(prompt));
 
         var attempt = 0;
+        string? responseText = null;
+        var stopwatch = Stopwatch.StartNew();
         while (true)
         {
             attempt++;
@@ -165,18 +178,28 @@ public sealed class OpenAIDecisionService : IAIDecisionService
             {
                 var response = await _client.CreateResponseAsync(creationOptions, cancellationToken);
                 var text = response.Value.GetOutputText();
+                responseText = text;
+                responseText = text;
                 var update = JsonSerializer.Deserialize<CampaignMemoryUpdate>(text);
+                _aiRequestLog.Write("memory-update", _options.Model, prompt, text, attempt, stopwatch);
                 return update ?? new CampaignMemoryUpdate();
             }
             catch (JsonException ex)
             {
-                throw new InvalidOperationException($"malformed structured campaign memory update: {ex.Message}", ex);
+                var parseException = new InvalidOperationException($"malformed structured campaign memory update: {ex.Message}", ex);
+                _aiRequestLog.Write("memory-update", _options.Model, prompt, responseText, attempt, stopwatch, parseException);
+                throw parseException;
             }
             catch (Exception ex) when (attempt <= _options.MaxRetries && IsTransient(ex))
             {
                 var delay = TimeSpan.FromMilliseconds(_options.RetryBaseDelayMs * Math.Pow(2, attempt - 1));
                 _log.Warn($"OpenAI memory request failed (attempt {attempt}/{_options.MaxRetries}), retrying in {delay}: {ex.Message}");
                 await Task.Delay(delay, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _aiRequestLog.Write("memory-update", _options.Model, prompt, responseText, attempt, stopwatch, ex);
+                throw;
             }
         }
     }

@@ -1,7 +1,6 @@
 using AIWhisper.Worker;
 using AIWhisper.Worker.Configuration;
 using AIWhisper.Worker.Tts;
-using AIWhisper.Worker.Knowledge;
 using Microsoft.Extensions.Configuration;
 
 if (args is ["--play", var audioFile])
@@ -77,13 +76,11 @@ var builder = Host.CreateApplicationBuilder(args);
 
 builder.Services.Configure<WorkerOptions>(builder.Configuration.GetSection("Worker"));
 builder.Services.Configure<OpenAIOptions>(builder.Configuration.GetSection("OpenAI"));
+builder.Services.Configure<AiRequestLoggingOptions>(builder.Configuration.GetSection("AiRequestLogging"));
 builder.Services.Configure<TtsOptions>(builder.Configuration.GetSection("Tts"));
 builder.Services.Configure<VoiceEffectsOptions>(builder.Configuration.GetSection("VoiceEffects"));
 builder.Services.Configure<PreSpeechCueOptions>(builder.Configuration.GetSection("PreSpeechCue"));
 builder.Services.Configure<MemoryOptions>(builder.Configuration.GetSection("Memory"));
-builder.Services.AddSingleton<ICharacterKnowledgeProvider>(_ => new CharacterKnowledgeProvider(
-    Path.Combine(AppContext.BaseDirectory, "Data", "Knowledge", "Characters")));
-
 builder.Services.AddHostedService<CampaignManagerHostedService>();
 
 var host = builder.Build();
