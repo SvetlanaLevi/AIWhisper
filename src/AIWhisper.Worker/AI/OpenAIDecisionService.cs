@@ -52,6 +52,7 @@ public sealed class OpenAIDecisionService : IAIDecisionService
     public async Task<AIDecision> DecideAsync(AIRequestContext context, CancellationToken cancellationToken)
     {
         var appliedSystemInstructions = new List<string> { context.BaseSystemPromptId };
+        MinimumReactionLevel? minimumReactionLevel = null;
         var schema = BinaryData.FromString("""
         {
           "type": "object",
@@ -84,9 +85,13 @@ public sealed class OpenAIDecisionService : IAIDecisionService
                 DevelopmentPromptFormatter.CreateSystemMessage(context.DevelopmentPhase, context.DevelopmentPrompt)));
             appliedSystemInstructions.Add($"parasite-development:{context.DevelopmentPhase}");
         }
-        creationOptions.InputItems.Add(ResponseItem.CreateSystemMessageItem(
-            CommentFrequencyInstruction.Create(_options.CommentFrequency)));
-        appliedSystemInstructions.Add($"comment-frequency:{_options.CommentFrequency}");
+        if (MinimumReactionLevelSelector.AppliesToPhase(context.DevelopmentPhase))
+        {
+            minimumReactionLevel = MinimumReactionLevelSelector.Select(_options.CommentFrequency);
+            creationOptions.InputItems.Add(ResponseItem.CreateSystemMessageItem(
+                MinimumReactionLevelInstruction.Create(minimumReactionLevel.Value)));
+            appliedSystemInstructions.Add($"minimum-reaction-level:{minimumReactionLevel}");
+        }
         if (_options.SimplifyEnglishForNonNativeSpeakers)
         {
             creationOptions.InputItems.Add(ResponseItem.CreateSystemMessageItem(SimpleEnglishInstruction.Text));
@@ -112,7 +117,16 @@ public sealed class OpenAIDecisionService : IAIDecisionService
                     throw new InvalidOperationException($"malformed structured AI response: {parseError}. Raw: {text}");
                 }
 
-                _aiRequestLog.Write("decision", _options.Model, context.UserPrompt, text, attempt, stopwatch, systemInstructions: appliedSystemInstructions);
+                _aiRequestLog.Write(
+                    "decision",
+                    _options.Model,
+                    context.UserPrompt,
+                    text,
+                    attempt,
+                    stopwatch,
+                    systemInstructions: appliedSystemInstructions,
+                    commentFrequency: _options.CommentFrequency.ToString(),
+                    minimumReactionLevel: minimumReactionLevel?.ToString());
                 return decision;
             }
             catch (Exception ex) when (attempt <= _options.MaxRetries && IsTransient(ex))
@@ -123,7 +137,17 @@ public sealed class OpenAIDecisionService : IAIDecisionService
             }
             catch (Exception ex)
             {
-                _aiRequestLog.Write("decision", _options.Model, context.UserPrompt, responseText, attempt, stopwatch, ex, appliedSystemInstructions);
+                _aiRequestLog.Write(
+                    "decision",
+                    _options.Model,
+                    context.UserPrompt,
+                    responseText,
+                    attempt,
+                    stopwatch,
+                    ex,
+                    appliedSystemInstructions,
+                    _options.CommentFrequency.ToString(),
+                    minimumReactionLevel?.ToString());
                 throw;
             }
         }

@@ -14,36 +14,70 @@ public sealed class CommentFrequencyTests
     }
 
     [Theory]
-    [InlineData("VeryLow", CommentFrequency.VeryLow, "overwhelming default")]
-    [InlineData("Low", CommentFrequency.Low, "Silence is the default")]
-    [InlineData("Medium", CommentFrequency.Medium, "react fairly freely")]
-    [InlineData("High", CommentFrequency.High, "Comment relatively often")]
-    public void Configuration_BindsFrequencyAndGeneratesItsInstruction(
-        string configuredValue,
-        CommentFrequency expectedFrequency,
-        string expectedInstructionFragment)
+    [InlineData("Low", CommentFrequency.Low)]
+    [InlineData("Medium", CommentFrequency.Medium)]
+    [InlineData("High", CommentFrequency.High)]
+    [InlineData("All", CommentFrequency.All)]
+    public void Configuration_BindsSupportedFrequency(string configuredValue, CommentFrequency expectedFrequency)
     {
         var configuration = new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?>
-            {
-                ["OpenAI:CommentFrequency"] = configuredValue,
-            })
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["OpenAI:CommentFrequency"] = configuredValue })
             .Build();
         var options = new OpenAIOptions();
         configuration.GetSection("OpenAI").Bind(options);
 
         Assert.Equal(expectedFrequency, options.CommentFrequency);
-        Assert.Contains(expectedInstructionFragment, CommentFrequencyInstruction.Create(options.CommentFrequency));
+    }
+
+    [Theory]
+    [InlineData(0.00, MinimumReactionLevel.Normal)]
+    [InlineData(0.249999, MinimumReactionLevel.Normal)]
+    [InlineData(0.25, MinimumReactionLevel.Critical)]
+    [InlineData(0.99, MinimumReactionLevel.Critical)]
+    public void Low_SelectsNormalInsideTwentyFivePercentRange(double roll, MinimumReactionLevel expected)
+        => Assert.Equal(expected, MinimumReactionLevelSelector.Select(CommentFrequency.Low, roll));
+
+    [Theory]
+    [InlineData(0.00, MinimumReactionLevel.Normal)]
+    [InlineData(0.499999, MinimumReactionLevel.Normal)]
+    [InlineData(0.50, MinimumReactionLevel.Critical)]
+    [InlineData(0.99, MinimumReactionLevel.Critical)]
+    public void Medium_SelectsNormalInsideFiftyPercentRange(double roll, MinimumReactionLevel expected)
+        => Assert.Equal(expected, MinimumReactionLevelSelector.Select(CommentFrequency.Medium, roll));
+
+    [Theory]
+    [InlineData(0.00)]
+    [InlineData(0.99)]
+    public void High_AlwaysSelectsNormal(double roll)
+        => Assert.Equal(MinimumReactionLevel.Normal, MinimumReactionLevelSelector.Select(CommentFrequency.High, roll));
+
+    [Theory]
+    [InlineData(0.00)]
+    [InlineData(0.99)]
+    public void All_AlwaysSelectsNone(double roll)
+        => Assert.Equal(MinimumReactionLevel.None, MinimumReactionLevelSelector.Select(CommentFrequency.All, roll));
+
+    [Theory]
+    [InlineData(MinimumReactionLevel.None, "MINIMUM REACTION LEVEL: NONE")]
+    [InlineData(MinimumReactionLevel.Normal, "MINIMUM REACTION LEVEL: NORMAL")]
+    [InlineData(MinimumReactionLevel.Critical, "MINIMUM REACTION LEVEL: CRITICAL")]
+    public void Prompt_UsesExactTransientFormat(MinimumReactionLevel level, string expected)
+        => Assert.Equal(expected, MinimumReactionLevelInstruction.Create(level));
+
+    [Fact]
+    public void Instinctive_IsNotFilteredByMinimumReactionLevel()
+    {
+        Assert.False(MinimumReactionLevelSelector.AppliesToPhase("Instinctive"));
+        Assert.False(MinimumReactionLevelSelector.AppliesToPhase("instinctive"));
+        Assert.True(MinimumReactionLevelSelector.AppliesToPhase("Awakening"));
+        Assert.True(MinimumReactionLevelSelector.AppliesToPhase("Established"));
     }
 
     [Fact]
     public void Configuration_BindsSimpleEnglishSetting()
     {
         var configuration = new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?>
-            {
-                ["OpenAI:SimplifyEnglishForNonNativeSpeakers"] = "true",
-            })
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["OpenAI:SimplifyEnglishForNonNativeSpeakers"] = "true" })
             .Build();
         var options = new OpenAIOptions();
         configuration.GetSection("OpenAI").Bind(options);

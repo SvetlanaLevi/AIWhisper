@@ -27,7 +27,9 @@ public sealed class AiRequestFileLogTests
             {
                 var stopwatch = Stopwatch.StartNew();
                 log.Write("decision", "gpt-4.1-mini", "CURRENT EVENT\\nGale: Hello", "{\"action\":\"silent\",\"text\":null}", 1, stopwatch,
-                    systemInstructions: ["file:ai-system-prompt.txt", "comment-frequency:Low"]);
+                    systemInstructions: ["file:ai-system-prompt.txt", "minimum-reaction-level:Critical"],
+                    commentFrequency: "Low",
+                    minimumReactionLevel: "Critical");
             }
 
             using var document = JsonDocument.Parse(File.ReadAllText(path));
@@ -36,9 +38,11 @@ public sealed class AiRequestFileLogTests
             Assert.Equal("gpt-4.1-mini", entry.GetProperty("model").GetString());
             Assert.Equal("CURRENT EVENT\\nGale: Hello", entry.GetProperty("userContent").GetString());
             Assert.Equal("{\"action\":\"silent\",\"text\":null}", entry.GetProperty("responseContent").GetString());
+            Assert.Equal("Low", entry.GetProperty("commentFrequency").GetString());
+            Assert.Equal("Critical", entry.GetProperty("minimumReactionLevel").GetString());
             Assert.False(entry.TryGetProperty("systemPrompt", out _));
             Assert.Equal(
-                ["file:ai-system-prompt.txt", "comment-frequency:Low"],
+                ["file:ai-system-prompt.txt", "minimum-reaction-level:Critical"],
                 entry.GetProperty("systemInstructions").EnumerateArray().Select(value => value.GetString()!).ToArray());
         }
         finally

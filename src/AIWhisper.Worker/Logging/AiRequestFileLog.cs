@@ -11,7 +11,7 @@ namespace AIWhisper.Worker.Logging;
 /// </summary>
 public interface IAiRequestLog : IDisposable
 {
-    void Write(string operation, string model, string userContent, string? responseContent, int attempts, Stopwatch stopwatch, Exception? exception = null, IReadOnlyList<string>? systemInstructions = null);
+    void Write(string operation, string model, string userContent, string? responseContent, int attempts, Stopwatch stopwatch, Exception? exception = null, IReadOnlyList<string>? systemInstructions = null, string? commentFrequency = null, string? minimumReactionLevel = null);
 }
 
 public sealed class AiRequestFileLog : IAiRequestLog, IDisposable
@@ -26,7 +26,7 @@ public sealed class AiRequestFileLog : IAiRequestLog, IDisposable
         Directory.CreateDirectory(Path.GetDirectoryName(filePath)!);
     }
 
-    public void Write(string operation, string model, string userContent, string? responseContent, int attempts, Stopwatch stopwatch, Exception? exception = null, IReadOnlyList<string>? systemInstructions = null)
+    public void Write(string operation, string model, string userContent, string? responseContent, int attempts, Stopwatch stopwatch, Exception? exception = null, IReadOnlyList<string>? systemInstructions = null, string? commentFrequency = null, string? minimumReactionLevel = null)
     {
         var entry = new
         {
@@ -36,6 +36,8 @@ public sealed class AiRequestFileLog : IAiRequestLog, IDisposable
             attempts,
             durationMs = stopwatch.ElapsedMilliseconds,
             systemInstructions = systemInstructions ?? [],
+            commentFrequency,
+            minimumReactionLevel,
             userContent,
             responseContent,
             error = exception is null ? null : new { type = exception.GetType().Name, message = exception.Message },
@@ -77,6 +79,6 @@ public sealed class NullAiRequestLog : IAiRequestLog
     public static readonly NullAiRequestLog Instance = new();
     private NullAiRequestLog() { }
 
-    public void Write(string operation, string model, string userContent, string? responseContent, int attempts, Stopwatch stopwatch, Exception? exception = null, IReadOnlyList<string>? systemInstructions = null) { }
+    public void Write(string operation, string model, string userContent, string? responseContent, int attempts, Stopwatch stopwatch, Exception? exception = null, IReadOnlyList<string>? systemInstructions = null, string? commentFrequency = null, string? minimumReactionLevel = null) { }
     public void Dispose() { }
 }

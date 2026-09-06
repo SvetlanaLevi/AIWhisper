@@ -38,7 +38,7 @@ public class CheckpointStoreTests : IDisposable
             Files = { ["server.log"] = new FileCheckpoint { Position = 123, Length = 123 } },
             Session = new SessionContext { Player = "Lana", Region = "SYS_CC_I" },
             Development = new ParasiteDevelopmentState { CurrentPhase = "Awakening", ReachedInRegion = "WLD_Main_A" },
-            LastAppliedSystemInstructions = ["file:ai-system-prompt.txt", "comment-frequency:Low"],
+            LastAppliedSystemInstructions = ["file:ai-system-prompt.txt", "minimum-reaction-level:Critical"],
         };
 
         await store.SaveAsync(checkpoint, CancellationToken.None);
@@ -50,7 +50,7 @@ public class CheckpointStoreTests : IDisposable
         Assert.Equal("SYS_CC_I", reloaded.Session.Region);
         Assert.Equal("Awakening", reloaded.Development?.CurrentPhase);
         Assert.Equal("WLD_Main_A", reloaded.Development?.ReachedInRegion);
-        Assert.Equal(["file:ai-system-prompt.txt", "comment-frequency:Low"], reloaded.LastAppliedSystemInstructions);
+        Assert.Equal(["file:ai-system-prompt.txt", "minimum-reaction-level:Critical"], reloaded.LastAppliedSystemInstructions);
     }
 
     [Fact]
