@@ -1,5 +1,7 @@
 namespace AIWhisper.Worker.Conversation;
 
+using AIWhisper.Worker.Development;
+
 /// <summary>
 /// Everything scoped to a single campaign: its session info and its
 /// conversation history. Never shared across campaigns.
@@ -11,4 +13,5 @@ public sealed class CampaignContext
     public SessionContext Session { get; } = new();
     public List<ConversationHistoryEntry> History { get; } = new();
     public CampaignMemory Memory { get; set; } = new();
+    public ParasiteDevelopmentState Development { get; set; } = new();
 }

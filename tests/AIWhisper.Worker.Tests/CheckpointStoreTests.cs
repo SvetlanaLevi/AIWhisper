@@ -1,4 +1,5 @@
 using AIWhisper.Worker.Persistence;
+using AIWhisper.Worker.Development;
 using Xunit;
 
 namespace AIWhisper.Worker.Tests;
@@ -34,6 +35,7 @@ public class CheckpointStoreTests : IDisposable
         {
             CampaignId = "C1",
             Files = { ["server.log"] = new FileCheckpoint { Position = 123, Length = 123 } },
+            Development = new ParasiteDevelopmentState { CurrentPhase = "Awakening", ReachedInRegion = "WLD_Main_A" },
         };
 
         await store.SaveAsync(checkpoint, CancellationToken.None);
@@ -41,6 +43,8 @@ public class CheckpointStoreTests : IDisposable
 
         Assert.Equal("C1", reloaded.CampaignId);
         Assert.Equal(123, reloaded.Files["server.log"].Position);
+        Assert.Equal("Awakening", reloaded.Development?.CurrentPhase);
+        Assert.Equal("WLD_Main_A", reloaded.Development?.ReachedInRegion);
     }
 
     [Fact]

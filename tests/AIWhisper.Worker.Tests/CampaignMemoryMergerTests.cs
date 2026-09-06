@@ -48,6 +48,20 @@ public sealed class CampaignMemoryMergerTests
     }
 
     [Fact]
+    public void Apply_EmptyDeltaPreservesExistingSummaryAndMemory()
+    {
+        var memory = new CampaignMemory
+        {
+            Summary = "Halsin is missing.",
+            ImportantEvents = ["The goblin temple is dangerous."],
+        };
+
+        Assert.False(CampaignMemoryMerger.Apply(memory, new CampaignMemoryUpdate(), Options));
+        Assert.Equal("Halsin is missing.", memory.Summary);
+        Assert.Equal(["The goblin temple is dangerous."], memory.ImportantEvents);
+    }
+
+    [Fact]
     public void Apply_ReplacesNonEmptySummaryAndTrimsOldestItemsAtLimit()
     {
         var memory = new CampaignMemory { Summary = "Old", ImportantEvents = ["one", "two"] };

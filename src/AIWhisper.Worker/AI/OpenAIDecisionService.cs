@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Text.Json;
 using AIWhisper.Worker.Configuration;
 using AIWhisper.Worker.Conversation;
+using AIWhisper.Worker.Development;
 using AIWhisper.Worker.Logging;
 using OpenAI;
 using OpenAI.Responses;
@@ -23,8 +24,14 @@ public sealed class OpenAIDecisionService : IAIDecisionService
     private readonly OpenAIOptions _options;
     private readonly IWorkerLog _log;
     private readonly IAiRequestLog _aiRequestLog;
+    private readonly string _memoryPromptTemplate;
 
-    public OpenAIDecisionService(string apiKey, OpenAIOptions options, IWorkerLog log, IAiRequestLog? aiRequestLog = null)
+    public OpenAIDecisionService(
+        string apiKey,
+        OpenAIOptions options,
+        IWorkerLog log,
+        IAiRequestLog? aiRequestLog = null,
+        string? memoryPromptTemplate = null)
     {
         var credential = new ApiKeyCredential(apiKey);
         var clientOptions = new ResponsesClientOptions
@@ -36,6 +43,7 @@ public sealed class OpenAIDecisionService : IAIDecisionService
         _options = options;
         _log = log;
         _aiRequestLog = aiRequestLog ?? NullAiRequestLog.Instance;
+        _memoryPromptTemplate = memoryPromptTemplate ?? CampaignMemoryPrompt.DefaultTemplate;
     }
 
     public async Task<AIDecision> DecideAsync(AIRequestContext context, CancellationToken cancellationToken)
@@ -66,6 +74,11 @@ public sealed class OpenAIDecisionService : IAIDecisionService
         };
 
         creationOptions.InputItems.Add(ResponseItem.CreateSystemMessageItem(context.SystemPrompt));
+        if (!string.IsNullOrWhiteSpace(context.DevelopmentPhase) && !string.IsNullOrWhiteSpace(context.DevelopmentPrompt))
+        {
+            creationOptions.InputItems.Add(ResponseItem.CreateSystemMessageItem(
+                DevelopmentPromptFormatter.CreateSystemMessage(context.DevelopmentPhase, context.DevelopmentPrompt)));
+        }
         creationOptions.InputItems.Add(ResponseItem.CreateSystemMessageItem(
             CommentFrequencyInstruction.Create(_options.CommentFrequency)));
         if (_options.SimplifyEnglishForNonNativeSpeakers)
@@ -84,6 +97,7 @@ public sealed class OpenAIDecisionService : IAIDecisionService
             {
                 var response = await _client.CreateResponseAsync(creationOptions, cancellationToken);
                 var text = response.Value.GetOutputText();
+                responseText = text;
 
                 if (!AIResponseParser.TryParse(text, out var decision, out var parseError) || decision is null)
                 {
@@ -138,21 +152,7 @@ public sealed class OpenAIDecisionService : IAIDecisionService
         }
         """);
 
-        var prompt = $"""
-        You maintain long-term memory for a character observing a Baldur's Gate 3 campaign.
-
-        Store only information likely to matter later. Good candidates are important story developments, meaningful relationship changes, repeated player behavior, promises, betrayals, conflicts, romantic developments, facts useful for later callbacks, and recurring patterns that can support a running joke.
-
-        Do not store ordinary dialogue, generic greetings, short-lived facts, duplicates already present in memory, or trivial wording details. PlayerTraits must describe recurring behavior, not a conclusion from one isolated choice unless that event is exceptionally significant. RunningJokes must be genuinely reusable recurring patterns, not a single funny event. Keep UpdatedSummary concise.
-
-        Return a delta only. Never repeat existing items merely to preserve them. Use empty lists, an empty object, and null UpdatedSummary when there is nothing worth adding or changing.
-
-        CURRENT CAMPAIGN MEMORY
-        {JsonSerializer.Serialize(currentMemory)}
-
-        NEWLY PROCESSED DIALOGUE
-        {transcript}
-        """;
+        var prompt = CampaignMemoryPrompt.Render(_memoryPromptTemplate, currentMemory, transcript);
 
         var creationOptions = new CreateResponseOptions
         {
@@ -178,7 +178,6 @@ public sealed class OpenAIDecisionService : IAIDecisionService
             {
                 var response = await _client.CreateResponseAsync(creationOptions, cancellationToken);
                 var text = response.Value.GetOutputText();
-                responseText = text;
                 responseText = text;
                 var update = JsonSerializer.Deserialize<CampaignMemoryUpdate>(text);
                 _aiRequestLog.Write("memory-update", _options.Model, prompt, text, attempt, stopwatch);

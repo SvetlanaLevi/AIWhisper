@@ -1,6 +1,7 @@
 using AIWhisper.Worker.AI;
 using AIWhisper.Worker.Configuration;
 using AIWhisper.Worker.Conversation;
+using AIWhisper.Worker.Development;
 using AIWhisper.Worker.EventProcessing;
 using AIWhisper.Worker.FileMonitoring;
 using AIWhisper.Worker.Logging;
@@ -21,6 +22,7 @@ public sealed class CampaignRuntime : IAsyncDisposable
     private readonly string _campaignDirectory;
     private readonly WorkerOptions _options;
     private readonly MemoryOptions _memoryOptions;
+    private readonly ParasiteDevelopmentPolicy _developmentPolicy;
     private readonly IWorkerLog _log;
     private readonly CheckpointStore _checkpointStore;
     private readonly CampaignMemoryStore _memoryStore;
@@ -34,12 +36,14 @@ public sealed class CampaignRuntime : IAsyncDisposable
     private CancellationTokenSource? _cts;
     private readonly List<Task> _loopTasks = new();
     private Timer? _checkpointTimer;
+    private readonly SemaphoreSlim _checkpointSaveGate = new(1, 1);
 
     public CampaignRuntime(
         string campaignId,
         string campaignDirectory,
         WorkerOptions options,
         MemoryOptions memoryOptions,
+        ParasiteDevelopmentOptions parasiteDevelopmentOptions,
         ICharacterKnowledgeProvider characterKnowledge,
         IWorkerLog log,
         IAIDecisionService aiDecisionService,
@@ -50,6 +54,7 @@ public sealed class CampaignRuntime : IAsyncDisposable
         _campaignDirectory = campaignDirectory;
         _options = options;
         _memoryOptions = memoryOptions;
+        _developmentPolicy = new ParasiteDevelopmentPolicy(parasiteDevelopmentOptions);
         _log = log;
 
         _checkpointStore = new CheckpointStore(Path.Combine(campaignDirectory, options.CheckpointFileName));
@@ -70,7 +75,18 @@ public sealed class CampaignRuntime : IAsyncDisposable
         _aggregator.SessionStartReceived += (player, region) =>
         {
             if (!string.IsNullOrEmpty(player)) _campaignContext.Session.Player = player;
-            if (!string.IsNullOrEmpty(region)) _campaignContext.Session.Region = region;
+            if (string.IsNullOrEmpty(region)) return;
+
+            _campaignContext.Session.Region = region;
+            if (_developmentPolicy.TryAdvance(_campaignContext.Development, region, out var previousPhase, out var warning))
+            {
+                _log.Info($"campaign {_campaignId}: parasite development advanced {previousPhase} -> {_campaignContext.Development.CurrentPhase} in region {region}");
+                _ = SaveCheckpointAsync(CancellationToken.None);
+            }
+            else if (warning is not null)
+            {
+                _log.Warn($"campaign {_campaignId}: {warning}");
+            }
         };
 
         _conversationManager = new ConversationManager(
@@ -82,7 +98,8 @@ public sealed class CampaignRuntime : IAsyncDisposable
             systemPrompt,
             options.MaxConversationHistoryEntries,
             _memoryStore,
-            _memoryOptions);
+            _memoryOptions,
+            _developmentPolicy);
     }
 
     public async Task StartAsync(CancellationToken outerToken)
@@ -91,6 +108,16 @@ public sealed class CampaignRuntime : IAsyncDisposable
         var token = _cts.Token;
 
         var checkpoint = await _checkpointStore.LoadAsync(token);
+        _campaignContext.Development = checkpoint.Development ?? new ParasiteDevelopmentState();
+        if (_developmentPolicy.EnsureInitialized(_campaignContext.Development, out var developmentWarning))
+        {
+            _log.Info($"campaign {_campaignId}: initialized parasite development phase '{_campaignContext.Development.CurrentPhase}'");
+            await SaveCheckpointAsync(token);
+        }
+        else if (developmentWarning is not null)
+        {
+            _log.Warn($"campaign {_campaignId}: {developmentWarning}");
+        }
         var memoryAlreadyExists = _memoryStore.Exists;
         try
         {
@@ -181,6 +208,7 @@ public sealed class CampaignRuntime : IAsyncDisposable
 
     private async Task SaveCheckpointAsync(CancellationToken token)
     {
+        await _checkpointSaveGate.WaitAsync(token);
         try
         {
             var checkpoint = new WorkerCheckpoint
@@ -191,12 +219,17 @@ public sealed class CampaignRuntime : IAsyncDisposable
                     [_options.ServerLogFileName] = _serverWatcher.CurrentCheckpoint(),
                     [_options.ClientLogFileName] = _clientWatcher.CurrentCheckpoint(),
                 },
+                Development = _campaignContext.Development,
             };
             await _checkpointStore.SaveAsync(checkpoint, token);
         }
         catch (Exception ex)
         {
             _log.Error("failed to save checkpoint", ex);
+        }
+        finally
+        {
+            _checkpointSaveGate.Release();
         }
     }
 
@@ -220,6 +253,7 @@ public sealed class CampaignRuntime : IAsyncDisposable
         _merger.Dispose();
         _aggregator.Dispose();
         _cts?.Dispose();
+        _checkpointSaveGate.Dispose();
 
         _log.Info($"campaign {_campaignId} runtime stopped");
     }

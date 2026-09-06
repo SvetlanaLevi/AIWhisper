@@ -2,7 +2,11 @@ using AIWhisper.Worker.Conversation;
 
 namespace AIWhisper.Worker.AI;
 
-public sealed record AIRequestContext(string SystemPrompt, string UserPrompt);
+public sealed record AIRequestContext(
+    string SystemPrompt,
+    string UserPrompt,
+    string? DevelopmentPhase = null,
+    string? DevelopmentPrompt = null);
 
 /// <summary>
 /// Isolates the pipeline from the concrete AI provider. The pipeline only

@@ -25,6 +25,7 @@ public sealed class CampaignManagerHostedService : BackgroundService
     private readonly VoiceEffectsOptions _voiceEffectsOptions;
     private readonly PreSpeechCueOptions _preSpeechCueOptions;
     private readonly MemoryOptions _memoryOptions;
+    private readonly ParasiteDevelopmentOptions _parasiteDevelopmentOptions;
     private CampaignManager? _campaignManager;
 
     private const string DefaultSystemPrompt =
@@ -40,7 +41,8 @@ public sealed class CampaignManagerHostedService : BackgroundService
         IOptions<TtsOptions> ttsOptions,
         IOptions<VoiceEffectsOptions> voiceEffectsOptions,
         IOptions<PreSpeechCueOptions> preSpeechCueOptions,
-        IOptions<MemoryOptions> memoryOptions)
+        IOptions<MemoryOptions> memoryOptions,
+        IOptions<ParasiteDevelopmentOptions> parasiteDevelopmentOptions)
     {
         _workerOptions = workerOptions.Value;
         _openAiOptions = openAiOptions.Value;
@@ -49,6 +51,7 @@ public sealed class CampaignManagerHostedService : BackgroundService
         _voiceEffectsOptions = voiceEffectsOptions.Value;
         _preSpeechCueOptions = preSpeechCueOptions.Value;
         _memoryOptions = memoryOptions.Value;
+        _parasiteDevelopmentOptions = parasiteDevelopmentOptions.Value;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -79,23 +82,27 @@ public sealed class CampaignManagerHostedService : BackgroundService
             throw new InvalidOperationException("OPENAI_API_KEY environment variable must be set.");
         }
 
-        string systemPrompt;
-        if (File.Exists(_workerOptions.SystemPromptPath))
-        {
-            systemPrompt = await File.ReadAllTextAsync(_workerOptions.SystemPromptPath, stoppingToken);
-        }
-        else
-        {
-            rootLog.Warn($"system prompt file not found at '{_workerOptions.SystemPromptPath}' - using a built-in default prompt");
-            systemPrompt = DefaultSystemPrompt;
-        }
+        var systemPrompt = await LoadPromptAsync(
+            _workerOptions.SystemPromptPath,
+            "system",
+            DefaultSystemPrompt,
+            rootLog,
+            stoppingToken);
+        var memoryPrompt = await LoadPromptAsync(
+            _workerOptions.MemoryPromptPath,
+            "memory",
+            CampaignMemoryPrompt.DefaultTemplate,
+            rootLog,
+            stoppingToken);
+        await LoadDevelopmentPromptsAsync(_parasiteDevelopmentOptions, rootLog, stoppingToken);
 
         using var aiRequestLog = CreateAiRequestLog(rootLog);
-        IAIDecisionService aiDecisionService = new OpenAIDecisionService(apiKey, _openAiOptions, rootLog, aiRequestLog);
+        IAIDecisionService aiDecisionService = new OpenAIDecisionService(apiKey, _openAiOptions, rootLog, aiRequestLog, memoryPrompt);
 
         _campaignManager = new CampaignManager(
             _workerOptions,
             _memoryOptions,
+            _parasiteDevelopmentOptions,
             characterKnowledge,
             aiDecisionService,
             audioDirectory => new ElevenLabsTextToSpeech(
@@ -147,5 +154,75 @@ public sealed class CampaignManagerHostedService : BackgroundService
         var filePath = Path.Combine(_workerOptions.RootDirectory, _aiRequestLoggingOptions.FileName);
         rootLog.Info($"AI request diagnostic logging is enabled: '{filePath}' (system prompts are excluded)");
         return new AiRequestFileLog(filePath);
+    }
+
+    private static async Task<string> LoadPromptAsync(
+        string configuredPath,
+        string promptName,
+        string fallback,
+        IWorkerLog log,
+        CancellationToken cancellationToken)
+    {
+        var path = Path.IsPathRooted(configuredPath)
+            ? configuredPath
+            : Path.Combine(AppContext.BaseDirectory, configuredPath);
+        if (!File.Exists(path))
+        {
+            log.Warn($"{promptName} prompt file was not found at '{path}' - using a built-in default prompt");
+            return fallback;
+        }
+
+        return await File.ReadAllTextAsync(path, cancellationToken);
+    }
+
+    private static async Task LoadDevelopmentPromptsAsync(
+        ParasiteDevelopmentOptions options,
+        IWorkerLog log,
+        CancellationToken cancellationToken)
+    {
+        options.PhasePrompts.Clear();
+        if (!options.Enabled) return;
+
+        foreach (var phase in options.PhaseSequence.Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            if (!TryGetValue(options.PromptPaths, phase, out var promptPath))
+            {
+                log.Warn($"parasite development phase '{phase}' has no configured prompt file; it will be skipped");
+                continue;
+            }
+
+            var path = Path.IsPathRooted(promptPath)
+                ? promptPath
+                : Path.Combine(AppContext.BaseDirectory, promptPath);
+            if (!File.Exists(path))
+            {
+                log.Warn($"parasite development prompt for phase '{phase}' was not found at '{path}'; it will be skipped");
+                continue;
+            }
+
+            var prompt = await File.ReadAllTextAsync(path, cancellationToken);
+            if (string.IsNullOrWhiteSpace(prompt))
+            {
+                log.Warn($"parasite development prompt for phase '{phase}' is empty at '{path}'; it will be skipped");
+                continue;
+            }
+
+            options.PhasePrompts[phase] = prompt;
+        }
+    }
+
+    private static bool TryGetValue(IReadOnlyDictionary<string, string> values, string key, out string value)
+    {
+        foreach (var pair in values)
+        {
+            if (string.Equals(pair.Key, key, StringComparison.OrdinalIgnoreCase))
+            {
+                value = pair.Value;
+                return true;
+            }
+        }
+
+        value = string.Empty;
+        return false;
     }
 }

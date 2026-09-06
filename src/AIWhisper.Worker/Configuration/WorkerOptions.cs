@@ -14,6 +14,7 @@ public sealed class WorkerOptions
     public string MemoryFileName { get; set; } = "memory.json";
     public string AudioDirectoryName { get; set; } = "audio";
     public string SystemPromptPath { get; set; } = "config/ai-system-prompt.txt";
+    public string MemoryPromptPath { get; set; } = "config/ai-memory-prompt.txt";
     public int MaxConversationHistoryEntries { get; set; } = 20;
     public int LateEventCompletedRetentionMinutes { get; set; } = 30;
 }

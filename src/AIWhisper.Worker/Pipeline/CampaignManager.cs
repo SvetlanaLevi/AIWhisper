@@ -17,6 +17,7 @@ public sealed class CampaignManager : IAsyncDisposable
 {
     private readonly WorkerOptions _options;
     private readonly MemoryOptions _memoryOptions;
+    private readonly ParasiteDevelopmentOptions _parasiteDevelopmentOptions;
     private readonly ICharacterKnowledgeProvider _characterKnowledge;
     private readonly IAIDecisionService _aiDecisionService;
     private readonly Func<string, ITextToSpeech> _ttsFactory;
@@ -33,6 +34,7 @@ public sealed class CampaignManager : IAsyncDisposable
     public CampaignManager(
         WorkerOptions options,
         MemoryOptions memoryOptions,
+        ParasiteDevelopmentOptions parasiteDevelopmentOptions,
         ICharacterKnowledgeProvider characterKnowledge,
         IAIDecisionService aiDecisionService,
         Func<string, ITextToSpeech> ttsFactory,
@@ -42,6 +44,7 @@ public sealed class CampaignManager : IAsyncDisposable
     {
         _options = options;
         _memoryOptions = memoryOptions;
+        _parasiteDevelopmentOptions = parasiteDevelopmentOptions;
         _characterKnowledge = characterKnowledge;
         _aiDecisionService = aiDecisionService;
         _ttsFactory = ttsFactory;
@@ -87,6 +90,7 @@ public sealed class CampaignManager : IAsyncDisposable
                 campaignDirectory,
                 _options,
                 _memoryOptions,
+                _parasiteDevelopmentOptions,
                 _characterKnowledge,
                 campaignLog,
                 _aiDecisionService,

@@ -1,5 +1,6 @@
 using AIWhisper.Worker.AI;
 using AIWhisper.Worker.Configuration;
+using AIWhisper.Worker.Development;
 using AIWhisper.Worker.EventProcessing;
 using AIWhisper.Worker.Logging;
 using AIWhisper.Worker.Persistence;
@@ -25,6 +26,7 @@ public sealed class ConversationManager
     private readonly int _maxHistoryEntries;
     private readonly CampaignMemoryStore _memoryStore;
     private readonly MemoryOptions _memoryOptions;
+    private readonly ParasiteDevelopmentPolicy? _developmentPolicy;
 
     public ConversationManager(
         CampaignContext campaign,
@@ -35,7 +37,8 @@ public sealed class ConversationManager
         string systemPrompt,
         int maxHistoryEntries,
         CampaignMemoryStore memoryStore,
-        MemoryOptions memoryOptions)
+        MemoryOptions memoryOptions,
+        ParasiteDevelopmentPolicy? developmentPolicy = null)
     {
         _campaign = campaign;
         _contextBuilder = contextBuilder;
@@ -46,6 +49,7 @@ public sealed class ConversationManager
         _maxHistoryEntries = maxHistoryEntries;
         _memoryStore = memoryStore;
         _memoryOptions = memoryOptions;
+        _developmentPolicy = developmentPolicy;
     }
 
     public async Task ProcessAsync(DialogueState dialogue, CancellationToken cancellationToken)
@@ -58,7 +62,17 @@ public sealed class ConversationManager
         }
 
         var userPrompt = _contextBuilder.BuildUserPrompt(_campaign, dialogue, _maxHistoryEntries);
-        var requestContext = new AIRequestContext(_systemPrompt, userPrompt);
+        string? developmentPhase = null;
+        string? developmentPrompt = null;
+        var hasDevelopmentInstruction = _developmentPolicy?.TryGetInstruction(
+            _campaign.Development,
+            out developmentPhase,
+            out developmentPrompt) == true;
+        var requestContext = new AIRequestContext(
+            _systemPrompt,
+            userPrompt,
+            hasDevelopmentInstruction ? developmentPhase : null,
+            hasDevelopmentInstruction ? developmentPrompt : null);
         _log.Info($"dialogue {dialogue.DialogueId}: requesting an AI decision ({dialogue.Events.Count} event(s), {transcript.Length} transcript character(s))");
 
         AIDecision decision;
