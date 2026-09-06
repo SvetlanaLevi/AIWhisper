@@ -8,6 +8,7 @@ namespace AIWhisper.Worker.Logging;
 /// </summary>
 public sealed class CampaignFileLog : IWorkerLog, IDisposable
 {
+    private static readonly object ConsoleGate = new();
     private readonly string _filePath;
     private readonly WorkerLogLevel _minimumLevel;
     private readonly bool _alsoWriteToConsole;
@@ -29,6 +30,7 @@ public sealed class CampaignFileLog : IWorkerLog, IDisposable
 
     public void Debug(string message) => Write(WorkerLogLevel.Debug, message);
     public void Info(string message) => Write(WorkerLogLevel.Information, message);
+    public void Highlight(string message) => Write(WorkerLogLevel.Information, message, highlightInConsole: true);
     public void Warn(string message) => Write(WorkerLogLevel.Warning, message);
 
     public void Error(string message, Exception? exception = null)
@@ -37,7 +39,7 @@ public sealed class CampaignFileLog : IWorkerLog, IDisposable
         Write(WorkerLogLevel.Error, full);
     }
 
-    private void Write(WorkerLogLevel level, string message)
+    private void Write(WorkerLogLevel level, string message, bool highlightInConsole = false)
     {
         if (level < _minimumLevel) return;
 
@@ -61,7 +63,28 @@ public sealed class CampaignFileLog : IWorkerLog, IDisposable
 
         if (_alsoWriteToConsole)
         {
-            Console.WriteLine(line);
+            lock (ConsoleGate)
+            {
+                if (highlightInConsole)
+                {
+                    var previousColor = Console.ForegroundColor;
+                    try
+                    {
+                        Console.ForegroundColor = ConsoleColor.Yellow;
+                        Console.WriteLine();
+                        Console.WriteLine(line);
+                        Console.WriteLine();
+                    }
+                    finally
+                    {
+                        Console.ForegroundColor = previousColor;
+                    }
+                }
+                else
+                {
+                    Console.WriteLine(line);
+                }
+            }
         }
     }
 

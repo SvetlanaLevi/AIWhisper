@@ -101,7 +101,7 @@ public sealed class ConversationManager
         }
 
         var aiTextForLog = decision.Text?.ReplaceLineEndings(" ") ?? string.Empty;
-        _log.Info($"dialogue {dialogue.DialogueId}: AI decided to speak: {aiTextForLog}");
+        _log.Highlight($">>> [AI SPEAK] dialogue {dialogue.DialogueId}: {aiTextForLog}");
         RecordHistory(dialogue, transcript, "speak", decision.Text);
 
         // Start the independent memory request now, but do not make speech wait
