@@ -63,6 +63,12 @@ public sealed class OpenAIDecisionService : IAIDecisionService
         };
 
         creationOptions.InputItems.Add(ResponseItem.CreateSystemMessageItem(context.SystemPrompt));
+        creationOptions.InputItems.Add(ResponseItem.CreateSystemMessageItem(
+            CommentFrequencyInstruction.Create(_options.CommentFrequency)));
+        if (_options.SimplifyEnglishForNonNativeSpeakers)
+        {
+            creationOptions.InputItems.Add(ResponseItem.CreateSystemMessageItem(SimpleEnglishInstruction.Text));
+        }
         creationOptions.InputItems.Add(ResponseItem.CreateUserMessageItem(context.UserPrompt));
 
         var attempt = 0;
