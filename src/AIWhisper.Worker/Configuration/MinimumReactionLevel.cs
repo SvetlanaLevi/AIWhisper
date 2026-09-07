@@ -48,5 +48,24 @@ public static class MinimumReactionLevelSelector
 public static class MinimumReactionLevelInstruction
 {
     public static string Create(MinimumReactionLevel level)
-        => $"MINIMUM REACTION LEVEL: {level.ToString().ToUpperInvariant()}";
+        => level switch
+        {
+            MinimumReactionLevel.None => """
+                MINIMUM REACTION LEVEL: NONE
+                Apply the current parasite-development rules without an additional reaction threshold.
+                """,
+            MinimumReactionLevel.Normal => """
+                MINIMUM REACTION LEVEL: NORMAL
+                Speak only when the current event gives you a distinct, worthwhile reason.
+                Routine social behavior, acknowledgements, and party management are silent.
+                """,
+            MinimumReactionLevel.Critical => """
+                MINIMUM REACTION LEVEL: CRITICAL
+                Speak only for an immediate matter of parasite survival, removal, ceremorphosis,
+                or illithid power, or for an exceptional revelation, betrayal, or conflict that
+                materially changes your view. Mild curiosity, amusement, ordinary social behavior,
+                acknowledgements, and party management are silent.
+                """,
+            _ => throw new ArgumentOutOfRangeException(nameof(level), level, null),
+        };
 }

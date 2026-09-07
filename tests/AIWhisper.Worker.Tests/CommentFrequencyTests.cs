@@ -61,8 +61,16 @@ public sealed class CommentFrequencyTests
     [InlineData(MinimumReactionLevel.None, "MINIMUM REACTION LEVEL: NONE")]
     [InlineData(MinimumReactionLevel.Normal, "MINIMUM REACTION LEVEL: NORMAL")]
     [InlineData(MinimumReactionLevel.Critical, "MINIMUM REACTION LEVEL: CRITICAL")]
-    public void Prompt_UsesExactTransientFormat(MinimumReactionLevel level, string expected)
-        => Assert.Equal(expected, MinimumReactionLevelInstruction.Create(level));
+    public void Prompt_IdentifiesSelectedLevel(MinimumReactionLevel level, string expected)
+        => Assert.Contains(expected, MinimumReactionLevelInstruction.Create(level));
+
+    [Fact]
+    public void NormalAndCriticalPrompts_RejectRoutinePartyManagement()
+    {
+        Assert.Contains("party management are silent", MinimumReactionLevelInstruction.Create(MinimumReactionLevel.Normal));
+        Assert.Contains("party management are silent", MinimumReactionLevelInstruction.Create(MinimumReactionLevel.Critical));
+        Assert.Contains("parasite survival", MinimumReactionLevelInstruction.Create(MinimumReactionLevel.Critical));
+    }
 
     [Fact]
     public void Instinctive_IsNotFilteredByMinimumReactionLevel()

@@ -16,6 +16,13 @@ Plot importance is not memory importance.
 
 Ordinary quest progress, travel, combat, loot, incidental NPCs, and routine dialogue should not become memories unless they have durable subjective meaning to the parasite.
 
+Routine party management is not a relationship event. Inviting a companion to join
+the active party, sending them to camp, or bringing them back from camp should normally
+produce no memory operation. Do not infer trust, preference, rejection, or strategic
+interest from party composition changes alone. Remember such an event only when the
+dialogue itself contains an explicit, durable relationship change or a separate fact
+that passes the core test.
+
 Store the meaning of an event to the parasite, not a chronological retelling.
 
 Write Summary as the concise fact, belief, expectation, or opinion the parasite
