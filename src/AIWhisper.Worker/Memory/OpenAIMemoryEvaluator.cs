@@ -28,10 +28,13 @@ public sealed class OpenAIMemoryEvaluator : IMemoryEvaluator
         string apiKey,
         OpenAIOptions options,
         IWorkerLog log,
-        IAiRequestLog? aiRequestLog = null,
-        string? prompt = null,
-        string promptId = "built-in:parasite-memory")
+        IAiRequestLog? aiRequestLog,
+        string prompt,
+        string promptId)
     {
+        if (string.IsNullOrWhiteSpace(prompt))
+            throw new ArgumentException("Memory evaluator prompt must not be empty.", nameof(prompt));
+
         _client = new ResponsesClient(new ApiKeyCredential(apiKey), new ResponsesClientOptions
         {
             NetworkTimeout = TimeSpan.FromSeconds(options.TimeoutSeconds),
@@ -39,7 +42,7 @@ public sealed class OpenAIMemoryEvaluator : IMemoryEvaluator
         _options = options;
         _log = log;
         _aiRequestLog = aiRequestLog ?? NullAiRequestLog.Instance;
-        _prompt = string.IsNullOrWhiteSpace(prompt) ? ParasiteMemoryEvaluatorPrompt.DefaultTemplate : prompt;
+        _prompt = prompt;
         _promptId = promptId;
     }
 

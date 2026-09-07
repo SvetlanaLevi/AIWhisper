@@ -89,10 +89,9 @@ public sealed class CampaignManagerHostedService : BackgroundService
             DefaultSystemPrompt,
             rootLog,
             stoppingToken);
-        var memoryPrompt = await LoadPromptAsync(
+        var memoryPrompt = await LoadRequiredPromptAsync(
             _workerOptions.MemoryEvaluatorPromptPath,
             "parasite memory evaluator",
-            ParasiteMemoryEvaluatorPrompt.DefaultTemplate,
             rootLog,
             stoppingToken);
         await LoadDevelopmentPromptsAsync(_parasiteDevelopmentOptions, rootLog, stoppingToken);
@@ -188,6 +187,33 @@ public sealed class CampaignManagerHostedService : BackgroundService
         return new LoadedPrompt(
             await File.ReadAllTextAsync(path, cancellationToken),
             $"file:{Path.GetFileName(path)}");
+    }
+
+    private static async Task<LoadedPrompt> LoadRequiredPromptAsync(
+        string configuredPath,
+        string promptName,
+        IWorkerLog log,
+        CancellationToken cancellationToken)
+    {
+        var path = Path.IsPathRooted(configuredPath)
+            ? configuredPath
+            : Path.Combine(AppContext.BaseDirectory, configuredPath);
+        if (!File.Exists(path))
+        {
+            var message = $"required {promptName} prompt file was not found at '{path}'";
+            log.Error(message);
+            throw new InvalidOperationException(message);
+        }
+
+        var content = await File.ReadAllTextAsync(path, cancellationToken);
+        if (string.IsNullOrWhiteSpace(content))
+        {
+            var message = $"required {promptName} prompt file is empty at '{path}'";
+            log.Error(message);
+            throw new InvalidOperationException(message);
+        }
+
+        return new LoadedPrompt(content, $"file:{Path.GetFileName(path)}");
     }
 
     private static async Task LoadDevelopmentPromptsAsync(

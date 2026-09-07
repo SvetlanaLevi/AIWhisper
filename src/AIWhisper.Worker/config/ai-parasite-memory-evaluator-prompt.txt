@@ -18,6 +18,14 @@ Ordinary quest progress, travel, combat, loot, incidental NPCs, and routine dial
 
 Store the meaning of an event to the parasite, not a chronological retelling.
 
+Write Summary as the concise fact, belief, expectation, or opinion the parasite
+would retain. Do not explain why the memory may matter and avoid meta phrases such
+as "indicating a motivation" or "affecting future behavior".
+
+Use short, concrete tags that can match a future scene, such as a character, place,
+or explicitly mentioned topic like "tadpole" or "removal". Do not use "hostBehavior"
+for the actions, plans, or motives of another character.
+
 Bad:
 "The host met Nettie. Nettie examined them. Nettie offered treatment. The host refused."
 

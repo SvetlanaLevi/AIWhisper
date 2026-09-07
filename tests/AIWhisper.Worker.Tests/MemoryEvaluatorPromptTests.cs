@@ -7,17 +7,6 @@ namespace AIWhisper.Worker.Tests;
 public sealed class MemoryEvaluatorPromptTests
 {
     [Fact]
-    public void DefaultPrompt_SeparatesOperationIdsAndPhaseRelevance()
-    {
-        var prompt = ParasiteMemoryEvaluatorPrompt.DefaultTemplate;
-
-        Assert.Contains("For create, targetId must be null", prompt);
-        Assert.Contains("targetId must exactly match an existing memory ID", prompt);
-        Assert.Contains("Development phase must not be used to discard", prompt);
-        Assert.Contains("Active Memory selection", prompt);
-    }
-
-    [Fact]
     public void UserContext_ContainsCompletedBatchExistingMemoryAndDevelopmentContext()
     {
         var item = new ParasiteMemoryItem
