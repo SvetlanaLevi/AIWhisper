@@ -2,7 +2,8 @@ namespace AIWhisper.Worker.EventProcessing;
 
 /// <summary>
 /// In-memory state for a single dialogue, keyed by (campaignId, dialogueId).
-/// Exists only until the dialogue is finalized and handed off for AI/TTS processing.
+/// Also used for AI batch snapshots: DialogueId identifies the first included
+/// dialogue, while each event retains its original dialogue identity.
 /// </summary>
 public sealed class DialogueState
 {

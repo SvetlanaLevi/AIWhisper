@@ -7,7 +7,8 @@ namespace AIWhisper.Worker.EventProcessing;
 /// <summary>
 /// Correlates a timestamp-ordered event stream (for one campaign) into
 /// per-dialogue state, keyed by (campaignId, dialogueId). Multiple dialogues
-/// can be active at once; there is no notion of "the current dialogue".
+/// can be active at once. After an end, emits a batch once no new dialogue.start
+/// has arrived for the end delay. Other events do not extend the window.
 /// </summary>
 public sealed class DialogueAggregator : IDisposable
 {
@@ -18,14 +19,22 @@ public sealed class DialogueAggregator : IDisposable
     private readonly TimeSpan _recentlyCompletedRetention;
     private readonly object _gate = new();
     private long _generation;
+    private readonly HashSet<DialogueKey> _pendingBatch = new();
+    private readonly TimeProvider _timeProvider;
+    private readonly ITimer _flushTimer;
+    private long _windowStarted;
+    private bool _closed;
     private readonly Channel<DialogueState> _completed = Channel.CreateUnbounded<DialogueState>();
 
     /// <summary>Raised for a session.start event, with (player, region) as reported.</summary>
     public event Action<string, string>? SessionStartReceived;
 
-    public DialogueAggregator(TimeSpan endDelay, IWorkerLog log, TimeSpan? recentlyCompletedRetention = null)
+    public DialogueAggregator(TimeSpan endDelay, IWorkerLog log, TimeSpan? recentlyCompletedRetention = null,
+        TimeProvider? timeProvider = null)
     {
         _endDelay = endDelay;
+        _timeProvider = timeProvider ?? TimeProvider.System;
+        _flushTimer = _timeProvider.CreateTimer(_ => FlushBatch(), null, Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
         _log = log;
         _recentlyCompletedRetention = recentlyCompletedRetention ?? TimeSpan.FromMinutes(30);
     }
@@ -37,6 +46,8 @@ public sealed class DialogueAggregator : IDisposable
         lock (_gate)
         {
             _generation = generation;
+            _pendingBatch.Clear();
+            if (!_closed) _flushTimer.Change(Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
             _active.Clear();
             _recentlyCompleted.Clear();
             while (_completed.Reader.TryRead(out _)) { }
@@ -112,6 +123,11 @@ public sealed class DialogueAggregator : IDisposable
                 state.DialogueResource = resource.GetString();
             }
             state.Events.Add(evt);
+            if (_pendingBatch.Count > 0 && !_closed)
+            {
+                _pendingBatch.Add(key);
+                RestartWindowLocked();
+            }
             _log.Info($"dialogue {evt.DialogueId} started");
         }
     }
@@ -148,6 +164,7 @@ public sealed class DialogueAggregator : IDisposable
             }
             state.Speakers = speakers;
             state.Events.Add(evt);
+            if (_pendingBatch.Count > 0) _pendingBatch.Add(key);
         }
     }
 
@@ -172,6 +189,7 @@ public sealed class DialogueAggregator : IDisposable
             // still captured under a freshly-created active state.
             var state = GetOrCreateLocked(key);
             state.Events.Add(evt);
+            if (_pendingBatch.Count > 0) _pendingBatch.Add(key);
         }
     }
 
@@ -184,10 +202,8 @@ public sealed class DialogueAggregator : IDisposable
         }
 
         var key = new DialogueKey(evt.CampaignId, evt.DialogueId);
-        long generation;
         lock (_gate)
         {
-            generation = _generation;
             if (WasRecentlyCompletedLocked(key))
             {
                 _log.Warn($"late 'dialogue.end' for already-completed dialogue {evt.DialogueId} - ignored");
@@ -198,46 +214,68 @@ public sealed class DialogueAggregator : IDisposable
             state.EndTime = evt.Timestamp;
             state.Status = DialogueStatus.EndPending;
             state.Events.Add(evt);
-            _log.Info($"dialogue {evt.DialogueId} ended; waiting {_endDelay.TotalMilliseconds:0} ms for trailing events");
+            if (!_closed)
+            {
+                var startWindow = _pendingBatch.Count == 0;
+                _pendingBatch.Add(key);
+                if (startWindow) RestartWindowLocked();
+            }
+            _log.Info($"dialogue {evt.DialogueId} ended; included in the pending AI batch");
         }
-
-        _ = FinalizeAfterDelayAsync(key, generation);
     }
 
-    private async Task FinalizeAfterDelayAsync(DialogueKey key, long generation)
+    private void RestartWindowLocked()
     {
-        try
-        {
-            await Task.Delay(_endDelay);
-        }
-        catch (Exception ex)
-        {
-            _log.Error("unexpected error while waiting for the dialogue completion delay", ex);
-        }
-        FinalizeDialogue(key, generation);
+        _windowStarted = _timeProvider.GetTimestamp();
+        _flushTimer.Change(_endDelay, Timeout.InfiniteTimeSpan);
     }
 
-    private void FinalizeDialogue(DialogueKey key, long generation)
+    private void FlushBatch()
     {
-        DialogueState? state;
         lock (_gate)
         {
-            if (generation != _generation) return;
-            if (!_active.TryGetValue(key, out state)) return;
-            if (state.Status != DialogueStatus.EndPending)
+            if (_closed || _pendingBatch.Count == 0) return;
+            // A callback queued before a start/reset must respect the new deadline.
+            var remaining = _endDelay - _timeProvider.GetElapsedTime(_windowStarted);
+            if (remaining > TimeSpan.Zero)
             {
-                // A later dialogue.start reactivated this key before we got here; leave it alone.
+                _flushTimer.Change(remaining, Timeout.InfiniteTimeSpan);
                 return;
             }
 
-            state.Events.Sort((a, b) => a.Timestamp.CompareTo(b.Timestamp));
-            state.Status = DialogueStatus.Completed;
-            _active.Remove(key);
+            var states = _pendingBatch.Select(key => _active[key]).ToList();
+            var batch = new DialogueState
+            {
+                CampaignId = states[0].CampaignId,
+                // Keep a real ID for existing history, memory and audio file naming.
+                DialogueId = states[0].DialogueId,
+                Generation = _generation,
+                DialogueResource = states.Count == 1 ? states[0].DialogueResource : null,
+                StartTime = states.Min(state => state.StartTime),
+                EndTime = states.All(state => state.Status == DialogueStatus.EndPending)
+                    ? states.Max(state => state.EndTime) : null,
+                Speakers = states.SelectMany(state => state.Speakers).Distinct().ToArray(),
+                Status = DialogueStatus.Completed,
+            };
+            batch.Events.AddRange(states.SelectMany(state => state.Events).OrderBy(evt => evt.Timestamp));
             PruneRecentlyCompletedLocked();
-            _recentlyCompleted[key] = DateTime.UtcNow;
+            foreach (var state in states)
+            {
+                if (state.Status == DialogueStatus.EndPending)
+                {
+                    _active.Remove(state.Key);
+                    _recentlyCompleted[state.Key] = DateTime.UtcNow;
+                }
+                else
+                {
+                    // Snapshot an ongoing dialogue without closing it or sending its content twice.
+                    state.Events.Clear();
+                }
+            }
+            _pendingBatch.Clear();
+            // Publish under the Reset lock so old batches cannot reappear after a load.
+            _completed.Writer.TryWrite(batch);
         }
-
-        _completed.Writer.TryWrite(state);
     }
 
     private DialogueState GetOrCreateLocked(DialogueKey key)
@@ -262,10 +300,17 @@ public sealed class DialogueAggregator : IDisposable
         }
     }
 
-    public void Complete() => _completed.Writer.TryComplete();
-
-    public void Dispose()
+    public void Complete()
     {
-        // No unmanaged resources; Complete() is the explicit shutdown signal.
+        lock (_gate)
+        {
+            if (_closed) return;
+            _closed = true;
+            _flushTimer.Dispose();
+            _pendingBatch.Clear();
+            _completed.Writer.TryComplete();
+        }
     }
+
+    public void Dispose() => Complete();
 }

@@ -54,16 +54,16 @@ public class DialogueAggregatorTests
     }
 
     [Fact]
-    public async Task TwoConcurrentDialogues_AreTrackedIndependently()
+    public async Task TwoConcurrentDialogues_EndInOneWindow_ProduceOneBatch()
     {
         var log = new NullLog();
         var aggregator = new DialogueAggregator(TimeSpan.FromMilliseconds(80), log);
         var t0 = new DateTime(2026, 1, 1, 10, 0, 0);
 
-        var completedIds = new List<string>();
+        var completedBatches = new List<DialogueState>();
         var pump = Task.Run(async () =>
         {
-            await foreach (var d in aggregator.Completed.ReadAllAsync()) completedIds.Add(d.DialogueId);
+            await foreach (var d in aggregator.Completed.ReadAllAsync()) completedBatches.Add(d);
         });
 
         aggregator.Handle(MakeEvent("dialogue.start", "A", t0));
@@ -77,7 +77,9 @@ public class DialogueAggregatorTests
         aggregator.Complete();
         await pump;
 
-        Assert.Equal(new[] { "A", "B" }, completedIds.OrderBy(x => x));
+        var batch = Assert.Single(completedBatches);
+        Assert.Equal(new[] { "A", "B" }, batch.Events.Select(evt => evt.DialogueId).Distinct().OrderBy(id => id));
+        Assert.Equal(6, batch.Events.Count);
     }
 
     [Fact]
