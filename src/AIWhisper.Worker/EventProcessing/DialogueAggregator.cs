@@ -17,6 +17,7 @@ public sealed class DialogueAggregator : IDisposable
     private readonly Dictionary<DialogueKey, DateTime> _recentlyCompleted = new();
     private readonly TimeSpan _recentlyCompletedRetention;
     private readonly object _gate = new();
+    private long _generation;
     private readonly Channel<DialogueState> _completed = Channel.CreateUnbounded<DialogueState>();
 
     /// <summary>Raised for a session.start event, with (player, region) as reported.</summary>
@@ -30,6 +31,17 @@ public sealed class DialogueAggregator : IDisposable
     }
 
     public ChannelReader<DialogueState> Completed => _completed.Reader;
+
+    public void Reset(long generation)
+    {
+        lock (_gate)
+        {
+            _generation = generation;
+            _active.Clear();
+            _recentlyCompleted.Clear();
+            while (_completed.Reader.TryRead(out _)) { }
+        }
+    }
 
     public void Handle(WorkerEvent evt)
     {
@@ -172,8 +184,10 @@ public sealed class DialogueAggregator : IDisposable
         }
 
         var key = new DialogueKey(evt.CampaignId, evt.DialogueId);
+        long generation;
         lock (_gate)
         {
+            generation = _generation;
             if (WasRecentlyCompletedLocked(key))
             {
                 _log.Warn($"late 'dialogue.end' for already-completed dialogue {evt.DialogueId} - ignored");
@@ -187,10 +201,10 @@ public sealed class DialogueAggregator : IDisposable
             _log.Info($"dialogue {evt.DialogueId} ended; waiting {_endDelay.TotalMilliseconds:0} ms for trailing events");
         }
 
-        _ = FinalizeAfterDelayAsync(key);
+        _ = FinalizeAfterDelayAsync(key, generation);
     }
 
-    private async Task FinalizeAfterDelayAsync(DialogueKey key)
+    private async Task FinalizeAfterDelayAsync(DialogueKey key, long generation)
     {
         try
         {
@@ -200,14 +214,15 @@ public sealed class DialogueAggregator : IDisposable
         {
             _log.Error("unexpected error while waiting for the dialogue completion delay", ex);
         }
-        FinalizeDialogue(key);
+        FinalizeDialogue(key, generation);
     }
 
-    private void FinalizeDialogue(DialogueKey key)
+    private void FinalizeDialogue(DialogueKey key, long generation)
     {
         DialogueState? state;
         lock (_gate)
         {
+            if (generation != _generation) return;
             if (!_active.TryGetValue(key, out state)) return;
             if (state.Status != DialogueStatus.EndPending)
             {
@@ -229,7 +244,7 @@ public sealed class DialogueAggregator : IDisposable
     {
         if (!_active.TryGetValue(key, out var state))
         {
-            state = new DialogueState { CampaignId = key.CampaignId, DialogueId = key.DialogueId };
+            state = new DialogueState { CampaignId = key.CampaignId, DialogueId = key.DialogueId, Generation = _generation };
             _active[key] = state;
         }
         return state;

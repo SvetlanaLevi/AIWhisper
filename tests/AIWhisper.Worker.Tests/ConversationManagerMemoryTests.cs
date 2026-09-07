@@ -81,11 +81,42 @@ public sealed class ConversationManagerMemoryTests : IDisposable
 
     private static DialogueState CreateDialogue()
     {
+        return CreateDialogueForGeneration(0);
+    }
+
+    [Fact]
+    public async Task Load_CancelsOldWorkAndSkipsQueuedOldDialogue()
+    {
+        var campaign = new CampaignContext { CampaignId = "C1", Directory = _directory };
+        var store = new CampaignMemoryStore(Path.Combine(_directory, "memory.json"));
+        var ai = new BlockingMemoryAi();
+        var tts = new RecordingTextToSpeech();
+        var manager = new ConversationManager(campaign, new AIContextBuilder(), ai, tts,
+            new NullLog(), "system", 20, store, new MemoryOptions());
+        var processing = manager.ProcessAsync(CreateDialogue(), default);
+        await tts.Started.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        Assert.True(EventParser.TryParse("""
+            {"campaignId":"C1","source":"server","type":"memory.load","timestamp":"2026-09-07 12:00:00","data":{}}
+            """, "C1", out var evt, out _));
+        await new MemoryEventHandler(campaign, store, new NullLog()).HandleAsync(evt!, default)
+            .WaitAsync(TimeSpan.FromSeconds(2));
+        await processing;
+        await manager.ProcessAsync(CreateDialogue(), default);
+        Assert.Empty(campaign.History);
+        Assert.Empty(campaign.Memory.Summary);
+        Assert.Equal(1, campaign.Generation);
+        ai.AllowMemoryUpdate.TrySetResult();
+        await manager.ProcessAsync(CreateDialogueForGeneration(1), default);
+        Assert.Single(campaign.History);
+    }
+
+    private static DialogueState CreateDialogueForGeneration(long generation)
+    {
         const string json = """
         {"schemaVersion":1,"campaignId":"C1","timestamp":"2026-01-01 10:00:00.0000000","source":"client","type":"dialogue.line","data":{"dialogueId":"D1","speaker":"Gale","text":"The grove needs help."}}
         """;
         Assert.True(EventParser.TryParse(json, "C1", out var evt, out var error), error?.Message);
-        var dialogue = new DialogueState { CampaignId = "C1", DialogueId = "D1" };
+        var dialogue = new DialogueState { CampaignId = "C1", DialogueId = "D1", Generation = generation };
         dialogue.Events.Add(evt!);
         return dialogue;
     }

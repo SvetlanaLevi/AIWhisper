@@ -8,6 +8,7 @@ public sealed class DialogueState
 {
     public required string CampaignId { get; init; }
     public required string DialogueId { get; init; }
+    public long Generation { get; init; }
     public string? DialogueResource { get; set; }
     public DateTime? StartTime { get; set; }
     public DateTime? EndTime { get; set; }

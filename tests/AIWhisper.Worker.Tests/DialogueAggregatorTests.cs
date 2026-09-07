@@ -144,4 +144,19 @@ public class DialogueAggregatorTests
 
         Assert.Null(exception);
     }
+
+    [Fact]
+    public async Task Reset_DropsOldQueueAndAllowsSameDialogueId()
+    {
+        using var aggregator = new DialogueAggregator(TimeSpan.FromMilliseconds(10), new NullLog());
+        aggregator.Handle(MakeEvent("dialogue.end", "D1", DateTime.UtcNow));
+        Assert.True(await aggregator.Completed.WaitToReadAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(2)));
+        aggregator.Reset(1);
+        Assert.False(aggregator.Completed.TryRead(out _));
+        aggregator.Handle(MakeEvent("dialogue.start", "D1", DateTime.UtcNow));
+        aggregator.Handle(MakeEvent("dialogue.end", "D1", DateTime.UtcNow));
+        var dialogue = await aggregator.Completed.ReadAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(2));
+        Assert.Equal(1, dialogue.Generation);
+        Assert.Equal(2, dialogue.Events.Count);
+    }
 }

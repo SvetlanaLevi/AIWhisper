@@ -26,6 +26,7 @@ public sealed class CampaignRuntime : IAsyncDisposable
     private readonly IWorkerLog _log;
     private readonly CheckpointStore _checkpointStore;
     private readonly CampaignMemoryStore _memoryStore;
+    private readonly MemoryEventHandler _memoryEventHandler;
     private readonly LogFileWatcher _serverWatcher;
     private readonly LogFileWatcher _clientWatcher;
     private readonly EventMerger _merger;
@@ -73,6 +74,8 @@ public sealed class CampaignRuntime : IAsyncDisposable
             TimeSpan.FromMinutes(options.LateEventCompletedRetentionMinutes));
 
         _campaignContext = new CampaignContext { CampaignId = campaignId, Directory = campaignDirectory };
+        _memoryEventHandler = new MemoryEventHandler(_campaignContext, _memoryStore, log,
+            _developmentPolicy, () => _aggregator.Reset(_campaignContext.Generation), SaveCheckpointAsync);
         _aggregator.SessionStartReceived += (player, region) =>
         {
             if (!string.IsNullOrEmpty(player)) _campaignContext.Session.Player = player;
@@ -195,7 +198,8 @@ public sealed class CampaignRuntime : IAsyncDisposable
         {
             try
             {
-                _aggregator.Handle(evt);
+                if (!await _memoryEventHandler.HandleAsync(evt, token))
+                    _aggregator.Handle(evt);
             }
             catch (Exception ex)
             {

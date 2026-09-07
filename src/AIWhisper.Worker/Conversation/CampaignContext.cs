@@ -13,6 +13,10 @@ public sealed class CampaignContext
     public SessionContext Session { get; } = new();
     public List<ConversationHistoryEntry> History { get; } = new();
     public CampaignMemory Memory { get; set; } = new();
+    public SemaphoreSlim MemoryGate { get; } = new(1, 1);
+    public SemaphoreSlim ProcessingGate { get; } = new(1, 1);
+    public CancellationTokenSource DialogueCancellation { get; set; } = new();
+    public long Generation { get; set; }
     public ParasiteDevelopmentState Development { get; set; } = new();
     public IReadOnlyList<string> LastAppliedSystemInstructions { get; set; } = [];
 }

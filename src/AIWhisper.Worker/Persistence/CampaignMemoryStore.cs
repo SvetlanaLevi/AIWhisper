@@ -49,7 +49,7 @@ public sealed class CampaignMemoryStore
         File.Move(tempPath, _path, overwrite: true);
     }
 
-    private static void NormalizeCollections(CampaignMemory memory)
+    internal static void NormalizeCollections(CampaignMemory memory)
     {
         memory.ImportantEvents ??= [];
         memory.Relationships = new(memory.Relationships ?? [], StringComparer.OrdinalIgnoreCase);

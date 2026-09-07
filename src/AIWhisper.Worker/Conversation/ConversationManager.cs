@@ -60,6 +60,23 @@ public sealed class ConversationManager
 
     public async Task ProcessAsync(DialogueState dialogue, CancellationToken cancellationToken)
     {
+        await _campaign.ProcessingGate.WaitAsync(cancellationToken);
+        try
+        {
+            if (dialogue.Generation != _campaign.Generation) return;
+            using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _campaign.DialogueCancellation.Token);
+            linked.Token.ThrowIfCancellationRequested();
+            await ProcessCurrentAsync(dialogue, linked.Token);
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            _log.Info($"dialogue {dialogue.DialogueId}: cancelled by save loading");
+        }
+        finally { _campaign.ProcessingGate.Release(); }
+    }
+
+    private async Task ProcessCurrentAsync(DialogueState dialogue, CancellationToken cancellationToken)
+    {
         var transcript = _contextBuilder.BuildTranscript(dialogue);
         if (string.IsNullOrWhiteSpace(transcript))
         {
@@ -96,6 +113,7 @@ public sealed class ConversationManager
         try
         {
             decision = await _aiDecisionService.DecideAsync(requestContext, cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -162,6 +180,7 @@ public sealed class ConversationManager
             var speaker = dialogue.Speakers.Count > 0 ? dialogue.Speakers[0].Name : null;
             var voiceContext = new VoiceContext(dialogue.CampaignId, dialogue.DialogueId, speaker, null);
             await _textToSpeech.SynthesizeAsync(introduction.Text, voiceContext, cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
 
             _campaign.Development.DeliveredOneShots.Add(introduction.Id);
             RecordHistory(dialogue, transcript, "speak", introduction.Text);
@@ -181,6 +200,7 @@ public sealed class ConversationManager
         string transcript,
         CancellationToken cancellationToken)
     {
+        await _campaign.MemoryGate.WaitAsync(cancellationToken);
         try
         {
             var update = await _aiDecisionService.UpdateCampaignMemoryAsync(
@@ -189,6 +209,7 @@ public sealed class ConversationManager
                 transcript,
                 dialogue.DialogueId,
                 cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
             if (!CampaignMemoryMerger.Apply(_campaign.Memory, update, _memoryOptions, dialogue.DialogueId))
             {
                 _log.Info($"campaign {_campaign.CampaignId}: memory update for dialogue {dialogue.DialogueId} contained no changes");
@@ -201,6 +222,10 @@ public sealed class ConversationManager
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _log.Error($"campaign {_campaign.CampaignId}: failed to update memory after dialogue {dialogue.DialogueId}", ex);
+        }
+        finally
+        {
+            _campaign.MemoryGate.Release();
         }
     }
 }
