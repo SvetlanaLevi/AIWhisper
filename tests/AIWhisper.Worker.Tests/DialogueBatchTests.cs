@@ -205,8 +205,6 @@ public sealed class DialogueBatchTests
             Prompt = context.UserPrompt;
             return Task.FromResult(new AIDecision(AIDecisionAction.Silent, null));
         }
-        public Task<CampaignMemoryUpdate> UpdateCampaignMemoryAsync(string campaignId, CampaignMemory currentMemory,
-            string transcript, string dialogueId, CancellationToken cancellationToken) => Task.FromResult(new CampaignMemoryUpdate());
     }
     private sealed class UnusedTts : ITextToSpeech
     {

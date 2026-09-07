@@ -5,6 +5,7 @@ using System.Text.RegularExpressions;
 using AIWhisper.Worker.Configuration;
 using AIWhisper.Worker.EventProcessing;
 using AIWhisper.Worker.Knowledge;
+using AIWhisper.Worker.Memory;
 
 namespace AIWhisper.Worker.Conversation;
 
@@ -19,11 +20,15 @@ public sealed class AIContextBuilder
     private static readonly Regex TagRegex = new("<[^>]+>", RegexOptions.Compiled);
     private readonly ICharacterKnowledgeProvider? _characterKnowledge;
     private readonly MemoryOptions _memoryOptions;
+    private readonly ActiveMemorySelector _activeMemorySelector;
 
     public AIContextBuilder(ICharacterKnowledgeProvider? characterKnowledge = null, MemoryOptions? memoryOptions = null)
     {
         _characterKnowledge = characterKnowledge;
         _memoryOptions = memoryOptions ?? new MemoryOptions();
+        _activeMemorySelector = new ActiveMemorySelector(
+            new ParasiteMemoryPhasePolicy(),
+            _memoryOptions.MaxActiveItems);
     }
 
     public string BuildUserPrompt(CampaignContext campaign, DialogueState dialogue, int maxHistoryEntries)
@@ -38,7 +43,7 @@ public sealed class AIContextBuilder
             sb.AppendLine();
         }
 
-        AppendCampaignMemory(sb, campaign.Memory, dialogue);
+        AppendActiveMemory(sb, campaign, dialogue);
         AppendCharacterKnowledge(sb, dialogue);
 
         if (campaign.History.Count > 0)
@@ -63,46 +68,25 @@ public sealed class AIContextBuilder
         return sb.ToString();
     }
 
-    private void AppendCampaignMemory(StringBuilder sb, CampaignMemory memory, DialogueState dialogue)
+    private void AppendActiveMemory(StringBuilder sb, CampaignContext campaign, DialogueState dialogue)
     {
-        if (string.IsNullOrWhiteSpace(memory.Summary) &&
-            string.IsNullOrWhiteSpace(memory.CurrentSituation) &&
-            memory.ImportantEvents.Count == 0 &&
-            memory.Relationships.Count == 0 &&
-            memory.PlayerTraits.Count == 0 &&
-            memory.RunningJokes.Count == 0)
-        {
-            return;
-        }
-
-        sb.AppendLine("CAMPAIGN MEMORY");
-        if (!string.IsNullOrWhiteSpace(memory.Summary)) sb.AppendLine($"Summary: {memory.Summary}");
-        if (!string.IsNullOrWhiteSpace(memory.CurrentSituation)) sb.AppendLine($"Current situation: {memory.CurrentSituation}");
-        var currentSpeakers = dialogue.Events
+        var characters = dialogue.Events
             .Where(evt => evt.Type == "dialogue.line")
             .Select(evt => GetString(evt.Data, "speaker"))
             .Where(name => !string.IsNullOrWhiteSpace(name))
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
-        var relationships = memory.Relationships
-            .OrderByDescending(pair => currentSpeakers.Contains(pair.Key))
-            .ThenBy(pair => pair.Key)
-            .Take(Math.Max(0, _memoryOptions.MaxContextRelationships))
-            .Select(pair => $"{pair.Key}: {pair.Value}");
+            .Cast<string>()
+            .ToList();
+        var active = _activeMemorySelector.Select(
+            campaign.Memory.LongTermMemory,
+            campaign.Development.CurrentPhase,
+            BuildTranscript(dialogue),
+            characters);
+        if (active.Count == 0) return;
 
-        AppendList(sb, "Relationships", relationships);
-        AppendList(sb, "Player tendencies", memory.PlayerTraits.TakeLast(Math.Max(0, _memoryOptions.MaxContextPlayerTraits)));
-        AppendList(sb, "Important past events", memory.ImportantEvents.TakeLast(Math.Max(0, _memoryOptions.MaxContextImportantEvents)));
-        AppendList(sb, "Running jokes", memory.RunningJokes.TakeLast(Math.Max(0, _memoryOptions.MaxContextRunningJokes)));
+        sb.AppendLine("ACTIVE MEMORY");
+        sb.AppendLine("Relevant memories:");
+        foreach (var item in active) sb.AppendLine("- " + item.Summary);
         sb.AppendLine();
-    }
-
-    private static void AppendList(StringBuilder sb, string heading, IEnumerable<string> items)
-    {
-        var values = items.Where(value => !string.IsNullOrWhiteSpace(value)).ToList();
-        if (values.Count == 0) return;
-
-        sb.AppendLine(heading + ":");
-        foreach (var value in values) sb.AppendLine("- " + value);
     }
 
     private void AppendCharacterKnowledge(StringBuilder sb, DialogueState dialogue)

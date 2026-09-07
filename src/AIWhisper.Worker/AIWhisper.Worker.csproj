@@ -38,7 +38,7 @@
     <None Update="config\ai-system-prompt.txt">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Update="config\ai-memory-prompt.txt">
+    <None Update="config\ai-parasite-memory-evaluator-prompt.txt">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Update="config\parasite-phases\*.txt">

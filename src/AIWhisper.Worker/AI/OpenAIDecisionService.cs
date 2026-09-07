@@ -1,8 +1,6 @@
 using System.ClientModel;
 using System.Diagnostics;
-using System.Text.Json;
 using AIWhisper.Worker.Configuration;
-using AIWhisper.Worker.Conversation;
 using AIWhisper.Worker.Development;
 using AIWhisper.Worker.Logging;
 using OpenAI;
@@ -24,16 +22,12 @@ public sealed class OpenAIDecisionService : IAIDecisionService
     private readonly OpenAIOptions _options;
     private readonly IWorkerLog _log;
     private readonly IAiRequestLog _aiRequestLog;
-    private readonly string _memoryPromptTemplate;
-    private readonly string _memoryPromptId;
 
     public OpenAIDecisionService(
         string apiKey,
         OpenAIOptions options,
         IWorkerLog log,
-        IAiRequestLog? aiRequestLog = null,
-        string? memoryPromptTemplate = null,
-        string memoryPromptId = "built-in:memory")
+        IAiRequestLog? aiRequestLog = null)
     {
         var credential = new ApiKeyCredential(apiKey);
         var clientOptions = new ResponsesClientOptions
@@ -45,8 +39,6 @@ public sealed class OpenAIDecisionService : IAIDecisionService
         _options = options;
         _log = log;
         _aiRequestLog = aiRequestLog ?? NullAiRequestLog.Instance;
-        _memoryPromptTemplate = memoryPromptTemplate ?? CampaignMemoryPrompt.DefaultTemplate;
-        _memoryPromptId = memoryPromptId;
     }
 
     public async Task<AIDecision> DecideAsync(AIRequestContext context, CancellationToken cancellationToken)
@@ -150,98 +142,6 @@ public sealed class OpenAIDecisionService : IAIDecisionService
                     appliedSystemInstructions,
                     _options.CommentFrequency.ToString(),
                     minimumReactionLevel?.ToString());
-                throw;
-            }
-        }
-    }
-
-    public async Task<CampaignMemoryUpdate> UpdateCampaignMemoryAsync(
-        string campaignId,
-        CampaignMemory currentMemory,
-        string transcript,
-        string dialogueId,
-        CancellationToken cancellationToken)
-    {
-        var schema = BinaryData.FromString("""
-        {
-          "type": "object",
-          "properties": {
-            "UpdatedSummary": { "type": ["string", "null"] },
-            "UpdatedCurrentSituation": { "type": ["string", "null"] },
-            "ImportantEventsToAdd": { "type": "array", "items": { "type": "string" } },
-            "ImportantEventsToRemove": { "type": "array", "items": { "type": "string" } },
-            "RelationshipUpdates": {
-              "type": "array",
-              "items": {
-                "type": "object",
-                "properties": {
-                  "Name": { "type": "string" },
-                  "Description": { "type": "string" }
-                },
-                "required": ["Name", "Description"],
-                "additionalProperties": false
-              }
-            },
-            "RelationshipsToRemove": { "type": "array", "items": { "type": "string" } },
-            "PlayerTraitsToAdd": { "type": "array", "items": { "type": "string" } },
-            "PlayerTraitsToRemove": { "type": "array", "items": { "type": "string" } },
-            "RunningJokesToAdd": { "type": "array", "items": { "type": "string" } },
-            "RunningJokesToRemove": { "type": "array", "items": { "type": "string" } }
-          },
-          "required": ["UpdatedSummary", "UpdatedCurrentSituation", "ImportantEventsToAdd", "ImportantEventsToRemove", "RelationshipUpdates", "RelationshipsToRemove", "PlayerTraitsToAdd", "PlayerTraitsToRemove", "RunningJokesToAdd", "RunningJokesToRemove"],
-          "additionalProperties": false
-        }
-        """);
-
-        var systemInstruction = CampaignMemoryPrompt.RenderSystemInstruction(_memoryPromptTemplate);
-        var userContext = CampaignMemoryPrompt.RenderUserContext(currentMemory, transcript, dialogueId);
-        var appliedSystemInstructions = new[] { $"memory-updater:{_memoryPromptId}" };
-
-        var creationOptions = new CreateResponseOptions
-        {
-            Model = _options.Model,
-            TextOptions = new ResponseTextOptions
-            {
-                TextFormat = ResponseTextFormat.CreateJsonSchemaFormat(
-                    "campaign_memory_update",
-                    schema,
-                    null,
-                    true),
-            },
-        };
-        creationOptions.InputItems.Add(ResponseItem.CreateSystemMessageItem(systemInstruction));
-        creationOptions.InputItems.Add(ResponseItem.CreateUserMessageItem(userContext));
-
-        var attempt = 0;
-        string? responseText = null;
-        var stopwatch = Stopwatch.StartNew();
-        while (true)
-        {
-            attempt++;
-            try
-            {
-                var response = await _client.CreateResponseAsync(creationOptions, cancellationToken);
-                var text = response.Value.GetOutputText();
-                responseText = text;
-                var update = JsonSerializer.Deserialize<CampaignMemoryUpdate>(text);
-                _aiRequestLog.Write(campaignId, "memory-update", _options.Model, userContext, text, attempt, stopwatch, systemInstructions: appliedSystemInstructions);
-                return update ?? new CampaignMemoryUpdate();
-            }
-            catch (JsonException ex)
-            {
-                var parseException = new InvalidOperationException($"malformed structured campaign memory update: {ex.Message}", ex);
-                _aiRequestLog.Write(campaignId, "memory-update", _options.Model, userContext, responseText, attempt, stopwatch, parseException, appliedSystemInstructions);
-                throw parseException;
-            }
-            catch (Exception ex) when (attempt <= _options.MaxRetries && IsTransient(ex))
-            {
-                var delay = TimeSpan.FromMilliseconds(_options.RetryBaseDelayMs * Math.Pow(2, attempt - 1));
-                _log.Warn($"OpenAI memory request failed (attempt {attempt}/{_options.MaxRetries}), retrying in {delay}: {ex.Message}");
-                await Task.Delay(delay, cancellationToken);
-            }
-            catch (Exception ex)
-            {
-                _aiRequestLog.Write(campaignId, "memory-update", _options.Model, userContext, responseText, attempt, stopwatch, ex, appliedSystemInstructions);
                 throw;
             }
         }

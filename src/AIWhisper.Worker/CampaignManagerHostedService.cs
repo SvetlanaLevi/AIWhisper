@@ -1,6 +1,7 @@
 using AIWhisper.Worker.AI;
 using AIWhisper.Worker.Configuration;
 using AIWhisper.Worker.Logging;
+using AIWhisper.Worker.Memory;
 using AIWhisper.Worker.Knowledge;
 using AIWhisper.Worker.Pipeline;
 using AIWhisper.Worker.Tts;
@@ -89,15 +90,20 @@ public sealed class CampaignManagerHostedService : BackgroundService
             rootLog,
             stoppingToken);
         var memoryPrompt = await LoadPromptAsync(
-            _workerOptions.MemoryPromptPath,
-            "memory",
-            CampaignMemoryPrompt.DefaultTemplate,
+            _workerOptions.MemoryEvaluatorPromptPath,
+            "parasite memory evaluator",
+            ParasiteMemoryEvaluatorPrompt.DefaultTemplate,
             rootLog,
             stoppingToken);
         await LoadDevelopmentPromptsAsync(_parasiteDevelopmentOptions, rootLog, stoppingToken);
 
         using var aiRequestLog = CreateAiRequestLog(rootLog);
         IAIDecisionService aiDecisionService = new OpenAIDecisionService(
+            apiKey,
+            _openAiOptions,
+            rootLog,
+            aiRequestLog);
+        IMemoryEvaluator memoryEvaluator = new OpenAIMemoryEvaluator(
             apiKey,
             _openAiOptions,
             rootLog,
@@ -111,6 +117,7 @@ public sealed class CampaignManagerHostedService : BackgroundService
             _parasiteDevelopmentOptions,
             characterKnowledge,
             aiDecisionService,
+            memoryEvaluator,
             audioDirectory => new ElevenLabsTextToSpeech(
                 _ttsOptions,
                 audioDirectory,

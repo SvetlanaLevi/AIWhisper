@@ -3,6 +3,7 @@ using AIWhisper.Worker.Configuration;
 using AIWhisper.Worker.Conversation;
 using AIWhisper.Worker.EventProcessing;
 using AIWhisper.Worker.Logging;
+using AIWhisper.Worker.Memory;
 using AIWhisper.Worker.Persistence;
 using AIWhisper.Worker.Tts;
 using Xunit;
@@ -20,15 +21,17 @@ public sealed class ConversationManagerMemoryTests : IDisposable
     {
         var campaign = new CampaignContext { CampaignId = "C1", Directory = _directory };
         var store = new CampaignMemoryStore(Path.Combine(_directory, "memory.json"));
-        var ai = new FakeAiService
+        var ai = new FakeAiService(AIDecisionAction.Silent);
+        var memoryEvaluator = new FakeMemoryEvaluator
         {
-            MemoryUpdate = new CampaignMemoryUpdate
+            Result = new MemoryEvaluationResult
             {
-                ImportantEventsToAdd = ["The player promised to help the grove."],
-                RelationshipUpdates = [new RelationshipMemoryUpdate
+                Operations = [new MemoryOperation
                 {
-                    Name = "Astarion",
-                    Description = "The player defended him.",
+                    Kind = MemoryOperationKind.Create,
+                    Summary = "The host rejected treatment that could endanger the parasite.",
+                    Category = MemoryCategory.RemovalThreat,
+                    Tags = ["treatment", "parasite"],
                 }],
             },
         };
@@ -41,16 +44,21 @@ public sealed class ConversationManagerMemoryTests : IDisposable
             "system prompt",
             20,
             store,
-            new MemoryOptions());
+            new MemoryOptions(),
+            memoryEvaluator: memoryEvaluator);
         var dialogue = CreateDialogue();
 
         await manager.ProcessAsync(dialogue, CancellationToken.None);
 
         var restoredMemory = await new CampaignMemoryStore(Path.Combine(_directory, "memory.json"))
             .LoadAsync(CancellationToken.None);
-        Assert.Equal(1, ai.MemoryUpdateCalls);
-        Assert.Contains("The player promised to help the grove.", restoredMemory.ImportantEvents);
-        Assert.Equal("The player defended him.", restoredMemory.Relationships["Astarion"]);
+        Assert.Equal(1, memoryEvaluator.Calls);
+        Assert.Contains("Gale: The grove needs help.", memoryEvaluator.LastRequest!.Transcript);
+        Assert.Contains("Player chose: We should help.", memoryEvaluator.LastRequest.Transcript);
+        Assert.DoesNotContain("The host rejected treatment", ai.LastContext!.UserPrompt);
+        Assert.Equal("silent", campaign.History.Single().AiAction);
+        Assert.Equal("The host rejected treatment that could endanger the parasite.",
+            restoredMemory.LongTermMemory.Single().Summary);
     }
 
     [Fact]
@@ -58,7 +66,8 @@ public sealed class ConversationManagerMemoryTests : IDisposable
     {
         var campaign = new CampaignContext { CampaignId = "C1", Directory = _directory };
         var memoryStore = new CampaignMemoryStore(Path.Combine(_directory, "memory.json"));
-        var ai = new BlockingMemoryAi();
+        var ai = new FakeAiService(AIDecisionAction.Speak);
+        var memoryEvaluator = new BlockingMemoryEvaluator();
         var tts = new RecordingTextToSpeech();
         var manager = new ConversationManager(
             campaign,
@@ -69,14 +78,41 @@ public sealed class ConversationManagerMemoryTests : IDisposable
             "system prompt",
             20,
             memoryStore,
-            new MemoryOptions());
+            new MemoryOptions(),
+            memoryEvaluator: memoryEvaluator);
 
         var processing = manager.ProcessAsync(CreateDialogue(), CancellationToken.None);
         await tts.Started.Task.WaitAsync(TimeSpan.FromSeconds(1));
 
         Assert.False(processing.IsCompleted);
-        ai.AllowMemoryUpdate.TrySetResult();
+        memoryEvaluator.AllowEvaluation.TrySetResult();
         await processing;
+        Assert.Empty(campaign.Memory.LongTermMemory);
+        Assert.Equal("speak", campaign.History.Single().AiAction);
+    }
+
+    [Fact]
+    public async Task MemoryFailure_DoesNotBreakReaction()
+    {
+        var campaign = new CampaignContext { CampaignId = "C1", Directory = _directory };
+        var log = new RecordingLog();
+        var manager = new ConversationManager(
+            campaign,
+            new AIContextBuilder(),
+            new FakeAiService(AIDecisionAction.Silent),
+            new UnusedTextToSpeech(),
+            log,
+            "system",
+            20,
+            new CampaignMemoryStore(Path.Combine(_directory, "memory.json")),
+            new MemoryOptions(),
+            memoryEvaluator: new ThrowingMemoryEvaluator());
+
+        await manager.ProcessAsync(CreateDialogue(), default);
+
+        Assert.Equal("silent", campaign.History.Single().AiAction);
+        Assert.Single(log.Errors);
+        Assert.Empty(campaign.Memory.LongTermMemory);
     }
 
     private static DialogueState CreateDialogue()
@@ -89,10 +125,11 @@ public sealed class ConversationManagerMemoryTests : IDisposable
     {
         var campaign = new CampaignContext { CampaignId = "C1", Directory = _directory };
         var store = new CampaignMemoryStore(Path.Combine(_directory, "memory.json"));
-        var ai = new BlockingMemoryAi();
+        var ai = new FakeAiService(AIDecisionAction.Speak);
+        var memoryEvaluator = new BlockingMemoryEvaluator();
         var tts = new RecordingTextToSpeech();
         var manager = new ConversationManager(campaign, new AIContextBuilder(), ai, tts,
-            new NullLog(), "system", 20, store, new MemoryOptions());
+            new NullLog(), "system", 20, store, new MemoryOptions(), memoryEvaluator: memoryEvaluator);
         var processing = manager.ProcessAsync(CreateDialogue(), default);
         await tts.Started.Task.WaitAsync(TimeSpan.FromSeconds(2));
         Assert.True(EventParser.TryParse("""
@@ -103,9 +140,9 @@ public sealed class ConversationManagerMemoryTests : IDisposable
         await processing;
         await manager.ProcessAsync(CreateDialogue(), default);
         Assert.Empty(campaign.History);
-        Assert.Empty(campaign.Memory.Summary);
+        Assert.Empty(campaign.Memory.LongTermMemory);
         Assert.Equal(1, campaign.Generation);
-        ai.AllowMemoryUpdate.TrySetResult();
+        memoryEvaluator.AllowEvaluation.TrySetResult();
         await manager.ProcessAsync(CreateDialogueForGeneration(1), default);
         Assert.Single(campaign.History);
     }
@@ -118,6 +155,11 @@ public sealed class ConversationManagerMemoryTests : IDisposable
         Assert.True(EventParser.TryParse(json, "C1", out var evt, out var error), error?.Message);
         var dialogue = new DialogueState { CampaignId = "C1", DialogueId = "D1", Generation = generation };
         dialogue.Events.Add(evt!);
+        const string choiceJson = """
+        {"schemaVersion":1,"campaignId":"C1","timestamp":"2026-01-01 10:00:01.0000000","source":"client","type":"dialogue.choice","data":{"dialogueId":"D1","speaker":"Gale","text":"We should help."}}
+        """;
+        Assert.True(EventParser.TryParse(choiceJson, "C1", out var choice, out error), error?.Message);
+        dialogue.Events.Add(choice!);
         return dialogue;
     }
 
@@ -126,23 +168,30 @@ public sealed class ConversationManagerMemoryTests : IDisposable
         if (Directory.Exists(_directory)) Directory.Delete(_directory, recursive: true);
     }
 
-    private sealed class FakeAiService : IAIDecisionService
+    private sealed class FakeAiService(AIDecisionAction action) : IAIDecisionService
     {
-        public CampaignMemoryUpdate MemoryUpdate { get; init; } = new();
-        public int MemoryUpdateCalls { get; private set; }
+        public AIRequestContext? LastContext { get; private set; }
 
         public Task<AIDecision> DecideAsync(AIRequestContext context, CancellationToken cancellationToken)
-            => Task.FromResult(new AIDecision(AIDecisionAction.Silent, null));
+        {
+            LastContext = context;
+            return Task.FromResult(new AIDecision(action, action == AIDecisionAction.Speak ? "A comment." : null));
+        }
+    }
 
-        public Task<CampaignMemoryUpdate> UpdateCampaignMemoryAsync(
-            string campaignId,
-            CampaignMemory currentMemory,
-            string transcript,
-            string dialogueId,
+    private sealed class FakeMemoryEvaluator : IMemoryEvaluator
+    {
+        public MemoryEvaluationResult Result { get; init; } = new();
+        public int Calls { get; private set; }
+        public MemoryEvaluationRequest? LastRequest { get; private set; }
+
+        public Task<MemoryEvaluationResult> EvaluateAsync(
+            MemoryEvaluationRequest request,
             CancellationToken cancellationToken)
         {
-            MemoryUpdateCalls++;
-            return Task.FromResult(MemoryUpdate);
+            Calls++;
+            LastRequest = request;
+            return Task.FromResult(Result);
         }
     }
 
@@ -163,23 +212,34 @@ public sealed class ConversationManagerMemoryTests : IDisposable
         }
     }
 
-    private sealed class BlockingMemoryAi : IAIDecisionService
+    private sealed class BlockingMemoryEvaluator : IMemoryEvaluator
     {
-        public TaskCompletionSource AllowMemoryUpdate { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource AllowEvaluation { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
-        public Task<AIDecision> DecideAsync(AIRequestContext context, CancellationToken cancellationToken)
-            => Task.FromResult(new AIDecision(AIDecisionAction.Speak, "A comment."));
-
-        public async Task<CampaignMemoryUpdate> UpdateCampaignMemoryAsync(
-            string campaignId,
-            CampaignMemory currentMemory,
-            string transcript,
-            string dialogueId,
+        public async Task<MemoryEvaluationResult> EvaluateAsync(
+            MemoryEvaluationRequest request,
             CancellationToken cancellationToken)
         {
-            await AllowMemoryUpdate.Task.WaitAsync(cancellationToken);
-            return new CampaignMemoryUpdate();
+            await AllowEvaluation.Task.WaitAsync(cancellationToken);
+            return new MemoryEvaluationResult();
         }
+    }
+
+    private sealed class ThrowingMemoryEvaluator : IMemoryEvaluator
+    {
+        public Task<MemoryEvaluationResult> EvaluateAsync(
+            MemoryEvaluationRequest request,
+            CancellationToken cancellationToken) =>
+            throw new HttpRequestException("network unavailable");
+    }
+
+    private sealed class RecordingLog : IWorkerLog
+    {
+        public List<string> Errors { get; } = [];
+        public void Debug(string message) { }
+        public void Info(string message) { }
+        public void Warn(string message) { }
+        public void Error(string message, Exception? exception = null) => Errors.Add(message);
     }
 
     private sealed class NullLog : IWorkerLog

@@ -2,6 +2,7 @@ using AIWhisper.Worker.Conversation;
 using AIWhisper.Worker.Configuration;
 using AIWhisper.Worker.EventProcessing;
 using AIWhisper.Worker.Knowledge;
+using AIWhisper.Worker.Memory;
 using Xunit;
 
 namespace AIWhisper.Worker.Tests;
@@ -64,20 +65,24 @@ public class AIContextBuilderTests
     public void BuildUserPrompt_IncludesPersistentMemoryBeforeRecentContext()
     {
         var campaign = new CampaignContext { CampaignId = "C1", Directory = "/tmp/C1" };
-        campaign.Memory.Summary = "The player is earning Astarion's trust.";
-        campaign.Memory.Relationships["Astarion"] = "Flirtatious but cautious.";
-        campaign.Memory.ImportantEvents.Add("The player promised to protect the grove.");
+        campaign.Memory.LongTermMemory.Add(new ParasiteMemoryItem
+        {
+            Id = Guid.NewGuid(),
+            Summary = "Astarion is flirtatious but cautious with the host.",
+            Category = MemoryCategory.CharacterRelationship,
+            CharacterName = "Astarion",
+        });
         campaign.History.Add(new ConversationHistoryEntry("D0", null, null, null, "recent exchange", "silent", null));
 
         var dialogue = new DialogueState { CampaignId = "C1", DialogueId = "D1" };
-        dialogue.Events.Add(MakeEvent("dialogue.line", DateTime.UtcNow, """{"dialogueId":"D1","speaker":"Gale","text":"We should go."}"""));
+        dialogue.Events.Add(MakeEvent("dialogue.line", DateTime.UtcNow, """{"dialogueId":"D1","speaker":"Astarion","text":"We should go."}"""));
 
         var prompt = new AIContextBuilder().BuildUserPrompt(campaign, dialogue, maxHistoryEntries: 5);
 
-        Assert.Contains("CAMPAIGN MEMORY", prompt);
-        Assert.Contains("Astarion: Flirtatious but cautious.", prompt);
+        Assert.Contains("ACTIVE MEMORY", prompt);
+        Assert.Contains("Astarion is flirtatious but cautious with the host.", prompt);
         Assert.Contains("RECENT CONTEXT", prompt);
-        Assert.True(prompt.IndexOf("CAMPAIGN MEMORY", StringComparison.Ordinal) < prompt.IndexOf("RECENT CONTEXT", StringComparison.Ordinal));
+        Assert.True(prompt.IndexOf("ACTIVE MEMORY", StringComparison.Ordinal) < prompt.IndexOf("RECENT CONTEXT", StringComparison.Ordinal));
         Assert.Contains("CURRENT EVENT", prompt);
     }
 
@@ -114,25 +119,22 @@ public class AIContextBuilderTests
     public void BuildUserPrompt_BoundsLongTermMemoryAndPrioritizesCurrentSpeakerRelationship()
     {
         var campaign = new CampaignContext { CampaignId = "C1", Directory = "/tmp/C1" };
-        campaign.Memory.ImportantEvents.AddRange(["old event", "middle event", "recent event"]);
-        campaign.Memory.Relationships["Astarion"] = "Old acquaintance";
-        campaign.Memory.Relationships["Zevlor"] = "Current ally";
-        campaign.Memory.ImportantEventSources["recent event"] = ["secret-dialogue-id"];
+        campaign.Memory.LongTermMemory.AddRange([
+            new() { Id = Guid.NewGuid(), Summary = "Astarion is an old acquaintance.", Category = MemoryCategory.CharacterRelationship, CharacterName = "Astarion" },
+            new() { Id = Guid.NewGuid(), Summary = "Zevlor may protect the host.", Category = MemoryCategory.CharacterOpinion, CharacterName = "Zevlor" },
+            new() { Id = Guid.NewGuid(), Summary = "The host once trusted Zevlor.", Category = MemoryCategory.Trust, CharacterName = "Zevlor" },
+        ]);
         var dialogue = new DialogueState { CampaignId = "C1", DialogueId = "D1" };
         dialogue.Events.Add(MakeEvent("dialogue.line", DateTime.UtcNow, """{"dialogueId":"D1","speaker":"Zevlor","text":"Listen."}"""));
         var builder = new AIContextBuilder(memoryOptions: new MemoryOptions
         {
-            MaxContextImportantEvents = 2,
-            MaxContextRelationships = 1,
+            MaxActiveItems = 1,
         });
 
         var prompt = builder.BuildUserPrompt(campaign, dialogue, maxHistoryEntries: 0);
 
-        Assert.DoesNotContain("old event", prompt);
-        Assert.Contains("middle event", prompt);
-        Assert.Contains("recent event", prompt);
-        Assert.Contains("Zevlor: Current ally", prompt);
-        Assert.DoesNotContain("Astarion: Old acquaintance", prompt);
-        Assert.DoesNotContain("secret-dialogue-id", prompt);
+        Assert.Contains("The host once trusted Zevlor.", prompt);
+        Assert.DoesNotContain("Zevlor may protect the host.", prompt);
+        Assert.DoesNotContain("Astarion is an old acquaintance.", prompt);
     }
 }

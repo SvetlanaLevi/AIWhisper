@@ -30,7 +30,8 @@ public sealed class MemoryEventHandler(
             log.Warn($"campaign {campaign.CampaignId}: invalid {evt.Type} data: {ex.Message}");
             return true;
         }
-        if (data is null || (evt.Type == "save.start" && data.SnapshotId is null))
+        var memoryId = data?.MemoryId ?? data?.SnapshotId;
+        if (data is null || (evt.Type == "save.start" && memoryId is null))
         {
             log.Warn($"campaign {campaign.CampaignId}: invalid {evt.Type} data");
             return true;
@@ -44,7 +45,7 @@ public sealed class MemoryEventHandler(
             var store = new CampaignSnapshotStore(campaign.Directory);
             if (evt.Type == "save.start")
             {
-                await store.SaveAsync(data.SnapshotId!.Value, new CampaignStateSnapshot
+                await store.SaveAsync(memoryId!.Value, new CampaignStateSnapshot
                 {
                     Memory = campaign.Memory,
                     Development = campaign.Development,
@@ -57,9 +58,9 @@ public sealed class MemoryEventHandler(
                 resetDialogues?.Invoke();
                 campaign.DialogueCancellation.Dispose();
                 campaign.DialogueCancellation = new CancellationTokenSource();
-                var snapshot = data.SnapshotId is Guid id ? await store.LoadAsync(id, cancellationToken) : null;
-                if (data.SnapshotId is not null && snapshot is null)
-                    log.Warn($"campaign {campaign.CampaignId}: snapshot {data.SnapshotId} is missing or invalid; using empty state");
+                var snapshot = memoryId is Guid id ? await store.LoadAsync(id, cancellationToken) : null;
+                if (memoryId is not null && snapshot is null)
+                    log.Warn($"campaign {campaign.CampaignId}: snapshot {memoryId} is missing or invalid; using empty state");
                 snapshot ??= new CampaignStateSnapshot();
                 campaign.Memory = snapshot.Memory;
                 campaign.Development = snapshot.Development;
@@ -78,6 +79,9 @@ public sealed class MemoryEventHandler(
 
     private sealed class SnapshotEventData
     {
+        [JsonPropertyName("memoryId")]
+        public Guid? MemoryId { get; init; }
+
         [JsonPropertyName("snapshotId")]
         public Guid? SnapshotId { get; init; }
     }

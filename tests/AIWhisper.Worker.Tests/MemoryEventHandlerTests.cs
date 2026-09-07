@@ -2,6 +2,7 @@ using System.Text.Json;
 using AIWhisper.Worker.Conversation;
 using AIWhisper.Worker.EventProcessing;
 using AIWhisper.Worker.Logging;
+using AIWhisper.Worker.Memory;
 using AIWhisper.Worker.Persistence;
 using Xunit;
 
@@ -27,33 +28,73 @@ public sealed class MemoryEventHandlerTests : IDisposable
     {
         var first = Guid.NewGuid();
         var second = Guid.NewGuid();
-        _campaign.Memory.Summary = "First save";
-        _campaign.Memory.ImportantEvents.Add("Met Gale");
+        SetMemory("First save", MemoryCategory.ParasiteNature);
         _campaign.Development.CurrentPhase = "first";
         _campaign.Development.DeliveredOneShots.Add("intro-first");
         _campaign.Session.Region = "grove";
         await Send("save.start", new { snapshotId = first });
         var original = await File.ReadAllTextAsync(SnapshotPath(first));
-        _campaign.Memory.Summary = "Later";
+        SetMemory("Later", MemoryCategory.Threat);
         _campaign.Development.CurrentPhase = "third";
         _campaign.Development.DeliveredOneShots.Add("intro-third");
         _campaign.Session.Region = "city";
         _campaign.History.Add(new("old", null, null, null, "future", "silent", null));
         await Send("memory.load", new { snapshotId = first });
-        Assert.Equal("First save", _campaign.Memory.Summary);
+        Assert.Equal("First save", _campaign.Memory.LongTermMemory.Single().Summary);
         Assert.Equal("first", _campaign.Development.CurrentPhase);
         Assert.Equal(new[] { "intro-first" }, _campaign.Development.DeliveredOneShots);
         Assert.Equal("grove", _campaign.Session.Region);
         Assert.Empty(_campaign.History);
-        Assert.Equal(new[] { "Met Gale" }, _campaign.Memory.ImportantEvents);
-        _campaign.Memory.Summary = "New branch";
+        SetMemory("New branch", MemoryCategory.HostAttitude);
         await _working.SaveAsync(_campaign.Memory, default);
         Assert.Equal(original, await File.ReadAllTextAsync(SnapshotPath(first)));
         Assert.False(File.Exists(SnapshotPath(second)));
         await Send("save.start", new { snapshotId = second });
-        Assert.Equal("New branch", (await new CampaignSnapshotStore(_directory).LoadAsync(second, default))!.Memory.Summary);
+        Assert.Equal("New branch", (await new CampaignSnapshotStore(_directory).LoadAsync(second, default))!.Memory.LongTermMemory.Single().Summary);
         await Send("save.start", new { snapshotId = first });
         Assert.Equal(original, await File.ReadAllTextAsync(SnapshotPath(first)));
+    }
+
+    [Fact]
+    public async Task MemoryIds_RestoreIsolatedSubjectiveMemory()
+    {
+        var first = Guid.NewGuid();
+        var second = Guid.NewGuid();
+        _campaign.Memory.LongTermMemory.Add(new ParasiteMemoryItem
+        {
+            Id = Guid.NewGuid(),
+            Summary = "First timeline",
+            Category = MemoryCategory.HostAttitude,
+        });
+        await Send("save.start", new { memoryId = first });
+
+        _campaign.Memory.LongTermMemory.Clear();
+        _campaign.Memory.LongTermMemory.Add(new ParasiteMemoryItem
+        {
+            Id = Guid.NewGuid(),
+            Summary = "Second timeline",
+            Category = MemoryCategory.Threat,
+        });
+        await Send("save.start", new { memoryId = second });
+
+        await Send("memory.load", new { memoryId = first });
+        Assert.Equal("First timeline", _campaign.Memory.LongTermMemory.Single().Summary);
+        await Send("memory.load", new { memoryId = second });
+        Assert.Equal("Second timeline", _campaign.Memory.LongTermMemory.Single().Summary);
+    }
+
+    [Fact]
+    public async Task LegacySnapshotWithoutSubjectiveMemory_LoadsWithEmptyCollection()
+    {
+        var id = Guid.NewGuid();
+        Directory.CreateDirectory(Path.GetDirectoryName(SnapshotPath(id))!);
+        await File.WriteAllTextAsync(SnapshotPath(id), """
+            { "Memory": { "Summary": "legacy" }, "Development": {}, "Session": {} }
+            """);
+
+        await Send("memory.load", new { snapshotId = id });
+
+        Assert.Empty(_campaign.Memory.LongTermMemory);
     }
 
     [Theory]
@@ -61,12 +102,10 @@ public sealed class MemoryEventHandlerTests : IDisposable
     [InlineData("{\"snapshotId\":null}")]
     public async Task LoadWithoutSnapshot_ResetsAndPersistsEmptyWorkingMemory(string data)
     {
-        _campaign.Memory.Summary = "Old timeline";
-        _campaign.Memory.Relationships["Gale"] = "Ally";
+        SetMemory("Old timeline", MemoryCategory.HostAttitude);
         await SendJson("memory.load", data);
-        Assert.Empty(_campaign.Memory.Summary);
-        Assert.Empty(_campaign.Memory.Relationships);
-        Assert.Empty((await _working.LoadAsync(default)).Summary);
+        Assert.Empty(_campaign.Memory.LongTermMemory);
+        Assert.Empty((await _working.LoadAsync(default)).LongTermMemory);
         Assert.Single(Directory.GetFiles(_directory));
     }
 
@@ -74,9 +113,9 @@ public sealed class MemoryEventHandlerTests : IDisposable
     public async Task MissingSnapshot_WarnsAndResetsWithoutCreatingSnapshot()
     {
         var id = Guid.NewGuid();
-        _campaign.Memory.Summary = "Old timeline";
+        SetMemory("Old timeline", MemoryCategory.HostAttitude);
         await Send("memory.load", new { snapshotId = id });
-        Assert.Empty(_campaign.Memory.Summary);
+        Assert.Empty(_campaign.Memory.LongTermMemory);
         Assert.Single(_log.Warnings);
         Assert.Contains(id.ToString(), _log.Warnings[0]);
         Assert.False(File.Exists(SnapshotPath(id)));
@@ -88,9 +127,9 @@ public sealed class MemoryEventHandlerTests : IDisposable
     [InlineData("memory.load", "{\"snapshotId\":\"invalid\"}")]
     public async Task InvalidData_WarnsWithoutChangingMemory(string type, string data)
     {
-        _campaign.Memory.Summary = "Keep";
+        SetMemory("Keep", MemoryCategory.ParasiteNature);
         await SendJson(type, data);
-        Assert.Equal("Keep", _campaign.Memory.Summary);
+        Assert.Equal("Keep", _campaign.Memory.LongTermMemory.Single().Summary);
         Assert.Single(_log.Warnings);
         Assert.False(Directory.Exists(_directory));
     }
@@ -110,10 +149,10 @@ public sealed class MemoryEventHandlerTests : IDisposable
         var load = SendJson("memory.load", "{}");
         Assert.True(_campaign.DialogueCancellation.IsCancellationRequested);
         Assert.False(load.IsCompleted);
-        _campaign.Memory.Summary = "In-flight update";
+        SetMemory("In-flight update", MemoryCategory.HostBehavior);
         _campaign.ProcessingGate.Release();
         await load;
-        Assert.Empty(_campaign.Memory.Summary);
+        Assert.Empty(_campaign.Memory.LongTermMemory);
     }
 
     [Fact]
@@ -124,13 +163,24 @@ public sealed class MemoryEventHandlerTests : IDisposable
         await File.WriteAllTextAsync(SnapshotPath(id), "{broken");
         _campaign.Development.CurrentPhase = "third";
         await Send("memory.load", new { snapshotId = id });
-        Assert.Empty(_campaign.Memory.Summary);
+        Assert.Empty(_campaign.Memory.LongTermMemory);
         Assert.Empty(_campaign.Development.CurrentPhase);
         Assert.Single(_log.Warnings);
         Assert.Equal("{broken", await File.ReadAllTextAsync(SnapshotPath(id)));
     }
 
     private string SnapshotPath(Guid id) => new CampaignSnapshotStore(_directory).GetPath(id);
+    private void SetMemory(string summary, MemoryCategory category)
+    {
+        _campaign.Memory.LongTermMemory.Clear();
+        _campaign.Memory.LongTermMemory.Add(new ParasiteMemoryItem
+        {
+            Id = Guid.NewGuid(),
+            Summary = summary,
+            Category = category,
+        });
+    }
+
     private Task Send(string type, object data) => SendJson(type, JsonSerializer.Serialize(data));
     private async Task SendJson(string type, string data)
     {

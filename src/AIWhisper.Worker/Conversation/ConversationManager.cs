@@ -3,6 +3,7 @@ using AIWhisper.Worker.Configuration;
 using AIWhisper.Worker.Development;
 using AIWhisper.Worker.EventProcessing;
 using AIWhisper.Worker.Logging;
+using AIWhisper.Worker.Memory;
 using AIWhisper.Worker.Persistence;
 using AIWhisper.Worker.Tts;
 
@@ -20,6 +21,7 @@ public sealed class ConversationManager
     private readonly CampaignContext _campaign;
     private readonly AIContextBuilder _contextBuilder;
     private readonly IAIDecisionService _aiDecisionService;
+    private readonly IMemoryEvaluator? _memoryEvaluator;
     private readonly ITextToSpeech _textToSpeech;
     private readonly IWorkerLog _log;
     private readonly string _systemPrompt;
@@ -42,11 +44,13 @@ public sealed class ConversationManager
         MemoryOptions memoryOptions,
         ParasiteDevelopmentPolicy? developmentPolicy = null,
         string systemPromptId = "base:unspecified",
-        Func<CancellationToken, Task>? saveCheckpoint = null)
+        Func<CancellationToken, Task>? saveCheckpoint = null,
+        IMemoryEvaluator? memoryEvaluator = null)
     {
         _campaign = campaign;
         _contextBuilder = contextBuilder;
         _aiDecisionService = aiDecisionService;
+        _memoryEvaluator = memoryEvaluator;
         _textToSpeech = textToSpeech;
         _log = log;
         _systemPrompt = systemPrompt;
@@ -84,74 +88,76 @@ public sealed class ConversationManager
             return;
         }
 
-        if (_developmentPolicy?.TryGetPendingIntroduction(
-                _campaign.Development,
-                out var introduction) == true)
-        {
-            await PlayPhaseIntroductionAsync(dialogue, transcript, introduction, cancellationToken);
-            return;
-        }
-
+        // Freeze reaction context before the memory branch can apply this
+        // batch, so neither result can influence the other.
         var userPrompt = _contextBuilder.BuildUserPrompt(_campaign, dialogue, _maxHistoryEntries);
-        string? developmentPhase = null;
-        string? developmentPrompt = null;
-        var hasDevelopmentInstruction = _developmentPolicy?.TryGetInstruction(
-            _campaign.Development,
-            out developmentPhase,
-            out developmentPrompt) == true;
-        var requestContext = new AIRequestContext(
-            _campaign.CampaignId,
-            _systemPrompt,
-            userPrompt,
-            hasDevelopmentInstruction ? developmentPhase : null,
-            hasDevelopmentInstruction ? developmentPrompt : null,
-            _systemPromptId,
-            instructions => _campaign.LastAppliedSystemInstructions = instructions);
-        _log.Info($"dialogue {dialogue.DialogueId}: requesting an AI decision ({dialogue.Events.Count} event(s), {transcript.Length} transcript character(s))");
-
-        AIDecision decision;
+        // Reaction and memory evaluate the same completed batch independently.
+        // Memory failure is contained inside EvaluateMemoryAsync.
+        var memoryEvaluationTask = EvaluateMemoryAsync(dialogue, transcript, cancellationToken);
         try
         {
-            decision = await _aiDecisionService.DecideAsync(requestContext, cancellationToken);
-            cancellationToken.ThrowIfCancellationRequested();
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            _log.Error($"AI decision failed for dialogue {dialogue.DialogueId} after retries - dialogue left unanswered", ex);
-            RecordHistory(dialogue, transcript, "error", null);
-            return;
-        }
+            if (_developmentPolicy?.TryGetPendingIntroduction(
+                    _campaign.Development,
+                    out var introduction) == true)
+            {
+                await PlayPhaseIntroductionAsync(dialogue, transcript, introduction, cancellationToken);
+                return;
+            }
 
-        if (decision.Action == AIDecisionAction.Silent)
-        {
-            _log.Info($"dialogue {dialogue.DialogueId}: AI decided to stay silent");
-            RecordHistory(dialogue, transcript, "silent", null);
-            await UpdateCampaignMemoryAsync(dialogue, transcript, cancellationToken);
-            return;
-        }
+            string? developmentPhase = null;
+            string? developmentPrompt = null;
+            var hasDevelopmentInstruction = _developmentPolicy?.TryGetInstruction(
+                _campaign.Development,
+                out developmentPhase,
+                out developmentPrompt) == true;
+            var requestContext = new AIRequestContext(
+                _campaign.CampaignId,
+                _systemPrompt,
+                userPrompt,
+                hasDevelopmentInstruction ? developmentPhase : null,
+                hasDevelopmentInstruction ? developmentPrompt : null,
+                _systemPromptId,
+                instructions => _campaign.LastAppliedSystemInstructions = instructions);
+            _log.Info($"dialogue {dialogue.DialogueId}: requesting an AI decision ({dialogue.Events.Count} event(s), {transcript.Length} transcript character(s))");
 
-        var aiTextForLog = decision.Text?.ReplaceLineEndings(" ") ?? string.Empty;
-        _log.Highlight($">>> [AI SPEAK] dialogue {dialogue.DialogueId}: {aiTextForLog}");
-        RecordHistory(dialogue, transcript, "speak", decision.Text);
+            AIDecision decision;
+            try
+            {
+                decision = await _aiDecisionService.DecideAsync(requestContext, cancellationToken);
+                cancellationToken.ThrowIfCancellationRequested();
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _log.Error($"AI decision failed for dialogue {dialogue.DialogueId} after retries - dialogue left unanswered", ex);
+                RecordHistory(dialogue, transcript, "error", null);
+                return;
+            }
 
-        // Start the independent memory request now, but do not make speech wait
-        // for it. ProcessAsync still awaits it before accepting the next
-        // dialogue, keeping updates sequential for this campaign.
-        var memoryUpdateTask = UpdateCampaignMemoryAsync(dialogue, transcript, cancellationToken);
+            if (decision.Action == AIDecisionAction.Silent)
+            {
+                _log.Info($"dialogue {dialogue.DialogueId}: AI decided to stay silent");
+                RecordHistory(dialogue, transcript, "silent", null);
+                return;
+            }
 
-        try
-        {
-            var speaker = dialogue.Speakers.Count > 0 ? dialogue.Speakers[0].Name : null;
-            var voiceContext = new VoiceContext(dialogue.CampaignId, dialogue.DialogueId, speaker, null);
-            await _textToSpeech.SynthesizeAsync(decision.Text ?? string.Empty, voiceContext, cancellationToken);
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            _log.Error($"TTS failed for dialogue {dialogue.DialogueId} - AI text was produced but not spoken", ex);
+            var aiTextForLog = decision.Text?.ReplaceLineEndings(" ") ?? string.Empty;
+            _log.Highlight($">>> [AI SPEAK] dialogue {dialogue.DialogueId}: {aiTextForLog}");
+            RecordHistory(dialogue, transcript, "speak", decision.Text);
+
+            try
+            {
+                var speaker = dialogue.Speakers.Count > 0 ? dialogue.Speakers[0].Name : null;
+                var voiceContext = new VoiceContext(dialogue.CampaignId, dialogue.DialogueId, speaker, null);
+                await _textToSpeech.SynthesizeAsync(decision.Text ?? string.Empty, voiceContext, cancellationToken);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _log.Error($"TTS failed for dialogue {dialogue.DialogueId} - AI text was produced but not spoken", ex);
+            }
         }
         finally
         {
-            await memoryUpdateTask;
+            await memoryEvaluationTask;
         }
     }
 
@@ -191,37 +197,52 @@ public sealed class ConversationManager
         {
             _log.Error($"campaign {_campaign.CampaignId}: failed to deliver phase introduction '{introduction.Id}' - it will be retried", ex);
         }
-
-        await UpdateCampaignMemoryAsync(dialogue, transcript, cancellationToken);
     }
 
-    private async Task UpdateCampaignMemoryAsync(
+    private async Task EvaluateMemoryAsync(
         DialogueState dialogue,
         string transcript,
         CancellationToken cancellationToken)
     {
+        if (_memoryEvaluator is null) return;
+
         await _campaign.MemoryGate.WaitAsync(cancellationToken);
         try
         {
-            var update = await _aiDecisionService.UpdateCampaignMemoryAsync(
+            var characters = dialogue.Events
+                .Where(evt => evt.Type == "dialogue.line" && evt.Data.ValueKind == System.Text.Json.JsonValueKind.Object)
+                .Select(evt => evt.Data.TryGetProperty("speaker", out var speaker) ? speaker.GetString() : null)
+                .Where(name => !string.IsNullOrWhiteSpace(name))
+                .Cast<string>()
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            var result = await _memoryEvaluator.EvaluateAsync(new MemoryEvaluationRequest(
                 _campaign.CampaignId,
-                _campaign.Memory,
+                _campaign.Memory.LongTermMemory.ToList(),
                 transcript,
                 dialogue.DialogueId,
-                cancellationToken);
+                _campaign.Development.CurrentPhase,
+                _campaign.Session.Region,
+                characters), cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
-            if (!CampaignMemoryMerger.Apply(_campaign.Memory, update, _memoryOptions, dialogue.DialogueId))
+            var applied = MemoryOperationApplier.Apply(
+                _campaign.Memory,
+                result.Operations,
+                _memoryOptions.MaxLongTermItems);
+            foreach (var target in applied.UnknownTargets)
+                _log.Warn($"campaign {_campaign.CampaignId}: memory operation references unknown target {target}; ignored");
+            if (!applied.Changed)
             {
-                _log.Info($"campaign {_campaign.CampaignId}: memory update for dialogue {dialogue.DialogueId} contained no changes");
+                _log.Info($"campaign {_campaign.CampaignId}: memory evaluation for dialogue {dialogue.DialogueId} contained no changes");
                 return;
             }
 
             await _memoryStore.SaveAsync(_campaign.Memory, cancellationToken);
-            _log.Info($"campaign {_campaign.CampaignId}: memory updated and saved after dialogue {dialogue.DialogueId}");
+            _log.Info($"campaign {_campaign.CampaignId}: subjective memory updated and saved after dialogue {dialogue.DialogueId}");
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            _log.Error($"campaign {_campaign.CampaignId}: failed to update memory after dialogue {dialogue.DialogueId}", ex);
+            _log.Error($"campaign {_campaign.CampaignId}: memory evaluation failed after dialogue {dialogue.DialogueId}; reaction pipeline continues", ex);
         }
         finally
         {

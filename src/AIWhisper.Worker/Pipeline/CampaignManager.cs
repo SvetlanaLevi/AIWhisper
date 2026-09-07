@@ -2,6 +2,7 @@ using AIWhisper.Worker.AI;
 using AIWhisper.Worker.Configuration;
 using AIWhisper.Worker.FileMonitoring;
 using AIWhisper.Worker.Logging;
+using AIWhisper.Worker.Memory;
 using AIWhisper.Worker.Knowledge;
 using AIWhisper.Worker.Tts;
 
@@ -20,6 +21,7 @@ public sealed class CampaignManager : IAsyncDisposable
     private readonly ParasiteDevelopmentOptions _parasiteDevelopmentOptions;
     private readonly ICharacterKnowledgeProvider _characterKnowledge;
     private readonly IAIDecisionService _aiDecisionService;
+    private readonly IMemoryEvaluator _memoryEvaluator;
     private readonly Func<string, ITextToSpeech> _ttsFactory;
     private readonly Func<string, IWorkerLog> _logFactory;
     private readonly IWorkerLog _rootLog;
@@ -38,6 +40,7 @@ public sealed class CampaignManager : IAsyncDisposable
         ParasiteDevelopmentOptions parasiteDevelopmentOptions,
         ICharacterKnowledgeProvider characterKnowledge,
         IAIDecisionService aiDecisionService,
+        IMemoryEvaluator memoryEvaluator,
         Func<string, ITextToSpeech> ttsFactory,
         Func<string, IWorkerLog> logFactory,
         IWorkerLog rootLog,
@@ -49,6 +52,7 @@ public sealed class CampaignManager : IAsyncDisposable
         _parasiteDevelopmentOptions = parasiteDevelopmentOptions;
         _characterKnowledge = characterKnowledge;
         _aiDecisionService = aiDecisionService;
+        _memoryEvaluator = memoryEvaluator;
         _ttsFactory = ttsFactory;
         _logFactory = logFactory;
         _rootLog = rootLog;
@@ -97,6 +101,7 @@ public sealed class CampaignManager : IAsyncDisposable
                 _characterKnowledge,
                 campaignLog,
                 _aiDecisionService,
+                _memoryEvaluator,
                 _ttsFactory(audioDirectory),
                 _systemPrompt,
                 _systemPromptId);

@@ -4,6 +4,7 @@ using AIWhisper.Worker.Conversation;
 using AIWhisper.Worker.Development;
 using AIWhisper.Worker.EventProcessing;
 using AIWhisper.Worker.Logging;
+using AIWhisper.Worker.Memory;
 using AIWhisper.Worker.Persistence;
 using AIWhisper.Worker.Tts;
 using Xunit;
@@ -147,7 +148,8 @@ public sealed class ConversationManagerPhaseIntroductionTests : IDisposable
             new CampaignMemoryStore(Path.Combine(_directory, "memory.json")),
             new MemoryOptions(),
             new ParasiteDevelopmentPolicy(options),
-            saveCheckpoint: saveCheckpoint);
+            saveCheckpoint: saveCheckpoint,
+            memoryEvaluator: ai);
     }
 
     private CampaignContext CreateCampaign(string phase) => new()
@@ -172,7 +174,7 @@ public sealed class ConversationManagerPhaseIntroductionTests : IDisposable
         if (Directory.Exists(_directory)) Directory.Delete(_directory, recursive: true);
     }
 
-    private sealed class RecordingAiService : IAIDecisionService
+    private sealed class RecordingAiService : IAIDecisionService, IMemoryEvaluator
     {
         public int DecisionCalls { get; private set; }
         public int MemoryUpdateCalls { get; private set; }
@@ -183,15 +185,12 @@ public sealed class ConversationManagerPhaseIntroductionTests : IDisposable
             return Task.FromResult(new AIDecision(AIDecisionAction.Silent, null));
         }
 
-        public Task<CampaignMemoryUpdate> UpdateCampaignMemoryAsync(
-            string campaignId,
-            CampaignMemory currentMemory,
-            string transcript,
-            string dialogueId,
+        public Task<MemoryEvaluationResult> EvaluateAsync(
+            MemoryEvaluationRequest request,
             CancellationToken cancellationToken)
         {
             MemoryUpdateCalls++;
-            return Task.FromResult(new CampaignMemoryUpdate());
+            return Task.FromResult(new MemoryEvaluationResult());
         }
     }
 

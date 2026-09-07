@@ -5,6 +5,7 @@ using AIWhisper.Worker.Development;
 using AIWhisper.Worker.EventProcessing;
 using AIWhisper.Worker.FileMonitoring;
 using AIWhisper.Worker.Logging;
+using AIWhisper.Worker.Memory;
 using AIWhisper.Worker.Knowledge;
 using AIWhisper.Worker.Persistence;
 using AIWhisper.Worker.Tts;
@@ -48,6 +49,7 @@ public sealed class CampaignRuntime : IAsyncDisposable
         ICharacterKnowledgeProvider characterKnowledge,
         IWorkerLog log,
         IAIDecisionService aiDecisionService,
+        IMemoryEvaluator memoryEvaluator,
         ITextToSpeech textToSpeech,
         string systemPrompt,
         string systemPromptId = "base:unspecified")
@@ -107,7 +109,8 @@ public sealed class CampaignRuntime : IAsyncDisposable
             _memoryOptions,
             _developmentPolicy,
             systemPromptId,
-            SaveCheckpointAsync);
+            SaveCheckpointAsync,
+            memoryEvaluator);
     }
 
     public async Task StartAsync(CancellationToken outerToken)

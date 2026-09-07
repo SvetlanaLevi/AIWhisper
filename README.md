@@ -13,11 +13,13 @@ dotnet run --project src/AIWhisper.Worker -- --play "C:\path\to\audio.mp3"
 
 ## Save snapshots
 
-Server events keep `campaignId` in the envelope and use optional `data.snapshotId`
-(`Guid?`, no custom converter). Event names remain `save.start`, `memory.load`,
-and `save.end`.
+Server events keep `campaignId` in the envelope and identify save-specific
+memory with `data.memoryId` (`Guid?`). The existing `data.snapshotId` name is
+also accepted for compatibility. Event names remain `save.start`,
+`memory.load`, and `save.end`.
 
-- `save.start` requires a snapshot GUID and saves memory, parasite development
+- `save.start` requires a memory GUID and saves subjective long-term memory,
+  parasite development
   (including delivered introductions), and session context together in
   `<campaignId>/snaphots/snapshot_<guid>/state.json`. The directory spelling
   `snaphots` is intentional to match the agreed path. Existing snapshots are
@@ -34,6 +36,7 @@ and `save.end`.
   are not rewound on load. This assumes events from the previous game session
   do not arrive after `memory.load`.
 
-The former `data.memoryId` contract and flat memory-only snapshot files are
-not used by this format. Lua must send `snapshotId`; this worker does not
-modify the mod's Lua files.
+Subjective memory is stored as semantic items with application-generated IDs.
+For each completed dialogue batch, memory evaluation runs independently of the
+reaction decision. The reaction receives only a compact active subset selected
+first by development phase and then by the current characters and context.
