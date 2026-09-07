@@ -83,6 +83,7 @@ public sealed class ConversationManager
             out developmentPhase,
             out developmentPrompt) == true;
         var requestContext = new AIRequestContext(
+            _campaign.CampaignId,
             _systemPrompt,
             userPrompt,
             hasDevelopmentInstruction ? developmentPhase : null,
@@ -183,6 +184,7 @@ public sealed class ConversationManager
         try
         {
             var update = await _aiDecisionService.UpdateCampaignMemoryAsync(
+                _campaign.CampaignId,
                 _campaign.Memory,
                 transcript,
                 dialogue.DialogueId,

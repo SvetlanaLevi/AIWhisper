@@ -104,6 +104,7 @@ public sealed class ConversationManagerMemoryTests : IDisposable
             => Task.FromResult(new AIDecision(AIDecisionAction.Silent, null));
 
         public Task<CampaignMemoryUpdate> UpdateCampaignMemoryAsync(
+            string campaignId,
             CampaignMemory currentMemory,
             string transcript,
             string dialogueId,
@@ -139,6 +140,7 @@ public sealed class ConversationManagerMemoryTests : IDisposable
             => Task.FromResult(new AIDecision(AIDecisionAction.Speak, "A comment."));
 
         public async Task<CampaignMemoryUpdate> UpdateCampaignMemoryAsync(
+            string campaignId,
             CampaignMemory currentMemory,
             string transcript,
             string dialogueId,

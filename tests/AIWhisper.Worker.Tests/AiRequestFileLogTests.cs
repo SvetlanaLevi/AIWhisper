@@ -20,13 +20,14 @@ public sealed class AiRequestFileLogTests
     [Fact]
     public void Write_ProducesOneStructuredUserSideRecord()
     {
-        var path = Path.GetTempFileName();
+        var root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        var path = Path.Combine(root, "C1", "ai-requests.ndjson");
         try
         {
-            using (var log = new AiRequestFileLog(path))
+            using (var log = new AiRequestFileLog(root, "ai-requests.ndjson"))
             {
                 var stopwatch = Stopwatch.StartNew();
-                log.Write("decision", "gpt-4.1-mini", "CURRENT EVENT\\nGale: Hello", "{\"action\":\"silent\",\"text\":null}", 1, stopwatch,
+                log.Write("C1", "decision", "gpt-4.1-mini", "CURRENT EVENT\\nGale: Hello", "{\"action\":\"silent\",\"text\":null}", 1, stopwatch,
                     systemInstructions: ["file:ai-system-prompt.txt", "minimum-reaction-level:Critical"],
                     commentFrequency: "Low",
                     minimumReactionLevel: "Critical");
@@ -34,6 +35,7 @@ public sealed class AiRequestFileLogTests
 
             using var document = JsonDocument.Parse(File.ReadAllText(path));
             var entry = document.RootElement;
+            Assert.Equal("C1", entry.GetProperty("campaignId").GetString());
             Assert.Equal("decision", entry.GetProperty("operation").GetString());
             Assert.Equal("gpt-4.1-mini", entry.GetProperty("model").GetString());
             Assert.Equal("CURRENT EVENT\\nGale: Hello", entry.GetProperty("userContent").GetString());
@@ -47,7 +49,33 @@ public sealed class AiRequestFileLogTests
         }
         finally
         {
-            File.Delete(path);
+            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void Write_RoutesDifferentCampaignsToDifferentFiles()
+    {
+        var root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        try
+        {
+            using (var log = new AiRequestFileLog(root, "ai-requests.ndjson"))
+            {
+                var stopwatch = Stopwatch.StartNew();
+                log.Write("C1", "decision", "model", "first", null, 1, stopwatch);
+                log.Write("C2", "memory-update", "model", "second", null, 1, stopwatch);
+            }
+
+            var first = File.ReadAllText(Path.Combine(root, "C1", "ai-requests.ndjson"));
+            var second = File.ReadAllText(Path.Combine(root, "C2", "ai-requests.ndjson"));
+            Assert.Contains("\"campaignId\":\"C1\"", first);
+            Assert.DoesNotContain("\"campaignId\":\"C2\"", first);
+            Assert.Contains("\"campaignId\":\"C2\"", second);
+            Assert.DoesNotContain("\"campaignId\":\"C1\"", second);
+        }
+        finally
+        {
+            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
         }
     }
 }

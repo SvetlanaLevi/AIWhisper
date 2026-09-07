@@ -158,9 +158,8 @@ public sealed class CampaignManagerHostedService : BackgroundService
             return NullAiRequestLog.Instance;
         }
 
-        var filePath = Path.Combine(_workerOptions.RootDirectory, _aiRequestLoggingOptions.FileName);
-        rootLog.Info($"AI request diagnostic logging is enabled: '{filePath}' (system prompts are excluded)");
-        return new AiRequestFileLog(filePath);
+        rootLog.Info($"AI request diagnostic logging is enabled per campaign as '{_aiRequestLoggingOptions.FileName}' (system prompts are excluded)");
+        return new AiRequestFileLog(_workerOptions.RootDirectory, _aiRequestLoggingOptions.FileName);
     }
 
     private static async Task<LoadedPrompt> LoadPromptAsync(

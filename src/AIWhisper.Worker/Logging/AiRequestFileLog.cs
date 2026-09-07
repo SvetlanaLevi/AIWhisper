@@ -11,26 +11,28 @@ namespace AIWhisper.Worker.Logging;
 /// </summary>
 public interface IAiRequestLog : IDisposable
 {
-    void Write(string operation, string model, string userContent, string? responseContent, int attempts, Stopwatch stopwatch, Exception? exception = null, IReadOnlyList<string>? systemInstructions = null, string? commentFrequency = null, string? minimumReactionLevel = null);
+    void Write(string campaignId, string operation, string model, string userContent, string? responseContent, int attempts, Stopwatch stopwatch, Exception? exception = null, IReadOnlyList<string>? systemInstructions = null, string? commentFrequency = null, string? minimumReactionLevel = null);
 }
 
 public sealed class AiRequestFileLog : IAiRequestLog, IDisposable
 {
-    private readonly string _filePath;
+    private readonly string _rootDirectory;
+    private readonly string _fileName;
     private readonly object _gate = new();
-    private StreamWriter? _writer;
+    private readonly Dictionary<string, StreamWriter> _writers = new(StringComparer.OrdinalIgnoreCase);
 
-    public AiRequestFileLog(string filePath)
+    public AiRequestFileLog(string rootDirectory, string fileName)
     {
-        _filePath = filePath;
-        Directory.CreateDirectory(Path.GetDirectoryName(filePath)!);
+        _rootDirectory = rootDirectory;
+        _fileName = fileName;
     }
 
-    public void Write(string operation, string model, string userContent, string? responseContent, int attempts, Stopwatch stopwatch, Exception? exception = null, IReadOnlyList<string>? systemInstructions = null, string? commentFrequency = null, string? minimumReactionLevel = null)
+    public void Write(string campaignId, string operation, string model, string userContent, string? responseContent, int attempts, Stopwatch stopwatch, Exception? exception = null, IReadOnlyList<string>? systemInstructions = null, string? commentFrequency = null, string? minimumReactionLevel = null)
     {
         var entry = new
         {
             timestampUtc = DateTimeOffset.UtcNow,
+            campaignId,
             operation,
             model,
             attempts,
@@ -47,11 +49,26 @@ public sealed class AiRequestFileLog : IAiRequestLog, IDisposable
         {
             try
             {
-                _writer ??= new StreamWriter(new FileStream(_filePath, FileMode.Append, FileAccess.Write, FileShare.ReadWrite), Encoding.UTF8)
+                if (string.IsNullOrWhiteSpace(campaignId) ||
+                    Path.IsPathRooted(campaignId) ||
+                    !string.Equals(Path.GetFileName(campaignId), campaignId, StringComparison.Ordinal))
                 {
-                    AutoFlush = true,
-                };
-                _writer.WriteLine(JsonSerializer.Serialize(entry));
+                    return;
+                }
+
+                if (!_writers.TryGetValue(campaignId, out var writer))
+                {
+                    var campaignDirectory = Path.Combine(_rootDirectory, campaignId);
+                    Directory.CreateDirectory(campaignDirectory);
+                    var filePath = Path.Combine(campaignDirectory, _fileName);
+                    writer = new StreamWriter(new FileStream(filePath, FileMode.Append, FileAccess.Write, FileShare.ReadWrite), Encoding.UTF8)
+                    {
+                        AutoFlush = true,
+                    };
+                    _writers[campaignId] = writer;
+                }
+
+                writer.WriteLine(JsonSerializer.Serialize(entry));
             }
             catch (IOException)
             {
@@ -68,8 +85,8 @@ public sealed class AiRequestFileLog : IAiRequestLog, IDisposable
     {
         lock (_gate)
         {
-            _writer?.Dispose();
-            _writer = null;
+            foreach (var writer in _writers.Values) writer.Dispose();
+            _writers.Clear();
         }
     }
 }
@@ -79,6 +96,6 @@ public sealed class NullAiRequestLog : IAiRequestLog
     public static readonly NullAiRequestLog Instance = new();
     private NullAiRequestLog() { }
 
-    public void Write(string operation, string model, string userContent, string? responseContent, int attempts, Stopwatch stopwatch, Exception? exception = null, IReadOnlyList<string>? systemInstructions = null, string? commentFrequency = null, string? minimumReactionLevel = null) { }
+    public void Write(string campaignId, string operation, string model, string userContent, string? responseContent, int attempts, Stopwatch stopwatch, Exception? exception = null, IReadOnlyList<string>? systemInstructions = null, string? commentFrequency = null, string? minimumReactionLevel = null) { }
     public void Dispose() { }
 }

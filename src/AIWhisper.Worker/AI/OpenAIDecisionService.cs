@@ -118,6 +118,7 @@ public sealed class OpenAIDecisionService : IAIDecisionService
                 }
 
                 _aiRequestLog.Write(
+                    context.CampaignId,
                     "decision",
                     _options.Model,
                     context.UserPrompt,
@@ -138,6 +139,7 @@ public sealed class OpenAIDecisionService : IAIDecisionService
             catch (Exception ex)
             {
                 _aiRequestLog.Write(
+                    context.CampaignId,
                     "decision",
                     _options.Model,
                     context.UserPrompt,
@@ -154,6 +156,7 @@ public sealed class OpenAIDecisionService : IAIDecisionService
     }
 
     public async Task<CampaignMemoryUpdate> UpdateCampaignMemoryAsync(
+        string campaignId,
         CampaignMemory currentMemory,
         string transcript,
         string dialogueId,
@@ -221,13 +224,13 @@ public sealed class OpenAIDecisionService : IAIDecisionService
                 var text = response.Value.GetOutputText();
                 responseText = text;
                 var update = JsonSerializer.Deserialize<CampaignMemoryUpdate>(text);
-                _aiRequestLog.Write("memory-update", _options.Model, userContext, text, attempt, stopwatch, systemInstructions: appliedSystemInstructions);
+                _aiRequestLog.Write(campaignId, "memory-update", _options.Model, userContext, text, attempt, stopwatch, systemInstructions: appliedSystemInstructions);
                 return update ?? new CampaignMemoryUpdate();
             }
             catch (JsonException ex)
             {
                 var parseException = new InvalidOperationException($"malformed structured campaign memory update: {ex.Message}", ex);
-                _aiRequestLog.Write("memory-update", _options.Model, userContext, responseText, attempt, stopwatch, parseException, appliedSystemInstructions);
+                _aiRequestLog.Write(campaignId, "memory-update", _options.Model, userContext, responseText, attempt, stopwatch, parseException, appliedSystemInstructions);
                 throw parseException;
             }
             catch (Exception ex) when (attempt <= _options.MaxRetries && IsTransient(ex))
@@ -238,7 +241,7 @@ public sealed class OpenAIDecisionService : IAIDecisionService
             }
             catch (Exception ex)
             {
-                _aiRequestLog.Write("memory-update", _options.Model, userContext, responseText, attempt, stopwatch, ex, appliedSystemInstructions);
+                _aiRequestLog.Write(campaignId, "memory-update", _options.Model, userContext, responseText, attempt, stopwatch, ex, appliedSystemInstructions);
                 throw;
             }
         }

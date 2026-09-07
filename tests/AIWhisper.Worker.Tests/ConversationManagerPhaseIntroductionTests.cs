@@ -184,6 +184,7 @@ public sealed class ConversationManagerPhaseIntroductionTests : IDisposable
         }
 
         public Task<CampaignMemoryUpdate> UpdateCampaignMemoryAsync(
+            string campaignId,
             CampaignMemory currentMemory,
             string transcript,
             string dialogueId,
