@@ -71,6 +71,7 @@ public sealed class CampaignManagerHostedService : BackgroundService
             Path.Combine(_workerOptions.RootDirectory, "_root-worker.log"),
             alsoWriteToConsole: true);
 
+        rootLog.Info($"AIWhisper version {ApplicationVersion.Current}");
         rootLog.Info($"AIWhisper is monitoring '{_workerOptions.RootDirectory}' for campaign folders");
         var characterKnowledge = new CharacterKnowledgeProvider(
             Path.Combine(AppContext.BaseDirectory, "Data", "Knowledge", "Characters"),
