@@ -148,6 +148,38 @@ public class DialogueAggregatorTests
     }
 
     [Fact]
+    public void LevelStarted_ReportsDataRegionThroughExistingRegionPath()
+    {
+        using var aggregator = new DialogueAggregator(TimeSpan.FromMilliseconds(60), new NullLog());
+        string? receivedPlayer = null;
+        string? receivedRegion = null;
+        aggregator.SessionStartReceived += (player, region) =>
+        {
+            receivedPlayer = player;
+            receivedRegion = region;
+        };
+
+        aggregator.Handle(MakeEvent("level.started", "irrelevant", DateTime.UtcNow,
+            """{"level":"WLD_Main_A","region":"SCL_Main_A"}"""));
+
+        Assert.Equal(string.Empty, receivedPlayer);
+        Assert.Equal("SCL_Main_A", receivedRegion);
+    }
+
+    [Fact]
+    public void LevelStarted_WithoutDataRegion_DoesNotReportLevelAsRegion()
+    {
+        using var aggregator = new DialogueAggregator(TimeSpan.FromMilliseconds(60), new NullLog());
+        var reports = 0;
+        aggregator.SessionStartReceived += (_, _) => reports++;
+
+        aggregator.Handle(MakeEvent("level.started", "irrelevant", DateTime.UtcNow,
+            """{"level":"WLD_Main_A"}"""));
+
+        Assert.Equal(0, reports);
+    }
+
+    [Fact]
     public async Task Reset_DropsOldQueueAndAllowsSameDialogueId()
     {
         using var aggregator = new DialogueAggregator(TimeSpan.FromMilliseconds(10), new NullLog());

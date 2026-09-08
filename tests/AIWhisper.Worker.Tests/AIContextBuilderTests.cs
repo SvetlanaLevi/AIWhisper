@@ -43,7 +43,7 @@ public class AIContextBuilderTests
     }
 
     [Fact]
-    public void BuildUserPrompt_IncludesSessionAndHistory()
+    public void BuildUserPrompt_IncludesPlayerAndHistoryButNotTechnicalRegion()
     {
         var campaign = new CampaignContext { CampaignId = "C1", Directory = "/tmp/C1" };
         campaign.Session.Player = "Victoria";
@@ -56,9 +56,29 @@ public class AIContextBuilderTests
         var prompt = new AIContextBuilder().BuildUserPrompt(campaign, dialogue, maxHistoryEntries: 5);
 
         Assert.Contains("Victoria", prompt);
-        Assert.Contains("WLD_Main_A", prompt);
+        Assert.DoesNotContain("WLD_Main_A", prompt);
         Assert.Contains("D0", prompt);
         Assert.Contains("Gale: hello", prompt);
+    }
+
+    [Fact]
+    public void BuildUserPrompt_IncludesDialogueNameWithoutTrailingGuid()
+    {
+        const string guid = "12345678-1234-1234-1234-123456789abc";
+        var campaign = new CampaignContext { CampaignId = "C1", Directory = "/tmp/C1" };
+        var dialogue = new DialogueState
+        {
+            CampaignId = "C1",
+            DialogueId = "D1",
+            DialogueResource = $"DEN_GoblinAttack_{guid}",
+        };
+        dialogue.Events.Add(MakeEvent("dialogue.line", DateTime.UtcNow,
+            """{"dialogueId":"D1","speaker":"Gale","text":"hello"}"""));
+
+        var prompt = new AIContextBuilder().BuildUserPrompt(campaign, dialogue, maxHistoryEntries: 0);
+
+        Assert.Contains("Dialogue name: DEN_GoblinAttack", prompt);
+        Assert.DoesNotContain(guid, prompt);
     }
 
     [Fact]

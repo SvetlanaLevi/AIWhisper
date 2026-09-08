@@ -44,6 +44,18 @@ public sealed class ParasiteDevelopmentPolicyTests
     }
 
     [Fact]
+    public void UnknownRegion_DoesNotChangeCurrentPhase()
+    {
+        var state = new ParasiteDevelopmentState { CurrentPhase = "Awakening" };
+
+        Assert.False(CreatePolicy().TryAdvance(state, "UNKNOWN_Main_A", out var previous, out var warning));
+        Assert.Null(previous);
+        Assert.Null(warning);
+        Assert.Equal("Awakening", state.CurrentPhase);
+        Assert.Null(state.ReachedInRegion);
+    }
+
+    [Fact]
     public void RegionMatching_IsCaseInsensitive()
     {
         var state = new ParasiteDevelopmentState { CurrentPhase = "Instinctive" };

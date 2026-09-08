@@ -61,6 +61,9 @@ public sealed class DialogueAggregator : IDisposable
             case "session.start":
                 HandleSessionStart(evt);
                 return;
+            case "level.started":
+                HandleLevelStarted(evt);
+                return;
             case "dialogue.start":
                 HandleDialogueStart(evt);
                 return;
@@ -221,6 +224,22 @@ public sealed class DialogueAggregator : IDisposable
                 if (startWindow) RestartWindowLocked();
             }
             _log.Info($"dialogue {evt.DialogueId} ended; included in the pending AI batch");
+        }
+    }
+
+    private void HandleLevelStarted(WorkerEvent evt)
+    {
+        if (evt.Data.ValueKind != JsonValueKind.Object ||
+            !evt.Data.TryGetProperty("region", out var region) ||
+            region.ValueKind != JsonValueKind.String)
+        {
+            return;
+        }
+
+        var regionName = region.GetString();
+        if (!string.IsNullOrWhiteSpace(regionName))
+        {
+            SessionStartReceived?.Invoke(string.Empty, regionName);
         }
     }
 

@@ -18,6 +18,9 @@ namespace AIWhisper.Worker.Conversation;
 public sealed class AIContextBuilder
 {
     private static readonly Regex TagRegex = new("<[^>]+>", RegexOptions.Compiled);
+    private static readonly Regex TrailingGuidRegex = new(
+        @"[\s_-]*\{?[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\}?\s*$",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
     private readonly ICharacterKnowledgeProvider? _characterKnowledge;
     private readonly MemoryOptions _memoryOptions;
     private readonly ActiveMemorySelector _activeMemorySelector;
@@ -35,11 +38,10 @@ public sealed class AIContextBuilder
     {
         var sb = new StringBuilder();
 
-        if (!string.IsNullOrEmpty(campaign.Session.Player) || !string.IsNullOrEmpty(campaign.Session.Region))
+        if (!string.IsNullOrEmpty(campaign.Session.Player))
         {
             sb.AppendLine("Game context:");
-            if (!string.IsNullOrEmpty(campaign.Session.Player)) sb.AppendLine($"- Player: {campaign.Session.Player}");
-            if (!string.IsNullOrEmpty(campaign.Session.Region)) sb.AppendLine($"- Region: {campaign.Session.Region}");
+            sb.AppendLine($"- Player: {campaign.Session.Player}");
             sb.AppendLine();
         }
 
@@ -55,6 +57,12 @@ public sealed class AIContextBuilder
                 sb.AppendLine($"- Dialogue {entry.DialogueId}: {entry.TranscriptSummary} -> you {reaction}");
             }
             sb.AppendLine();
+        }
+
+        var dialogueName = GetDialogueName(dialogue.DialogueResource);
+        if (!string.IsNullOrEmpty(dialogueName))
+        {
+            sb.AppendLine($"Dialogue name: {dialogueName}");
         }
 
         if (dialogue.Speakers.Count > 0)
@@ -148,6 +156,14 @@ public sealed class AIContextBuilder
         if (string.IsNullOrEmpty(raw)) return string.Empty;
         var withoutTags = TagRegex.Replace(raw, string.Empty);
         return WebUtility.HtmlDecode(withoutTags).Trim();
+    }
+
+    private static string? GetDialogueName(string? dialogueResource)
+    {
+        if (string.IsNullOrWhiteSpace(dialogueResource)) return null;
+
+        var name = TrailingGuidRegex.Replace(dialogueResource.Trim(), string.Empty).Trim();
+        return name.Length == 0 ? null : name;
     }
 
     private static string? GetString(JsonElement data, string property)
