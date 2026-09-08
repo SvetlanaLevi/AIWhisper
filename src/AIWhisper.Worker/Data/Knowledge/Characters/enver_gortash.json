@@ -1,0 +1,9 @@
+{
+  "name": "Enver Gortash",
+  "category": "act2_npc",
+  "race": "Human",
+  "class": null,
+  "role": "Authoritarian political figure allied with Ketheric",
+  "summary": "A confident and well-equipped Baldurian power broker who speaks to Ketheric and Orin as an equal and approaches domination as a practical problem.",
+  "personality": ["authoritarian", "inventive", "pragmatic", "manipulative", "ambitious"]
+}

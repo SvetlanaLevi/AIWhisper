@@ -1,0 +1,9 @@
+{
+  "name": "Waking Mind",
+  "category": "act2_npc",
+  "race": "Githzerai",
+  "class": "Monk",
+  "role": "Preserved githzerai consciousness",
+  "summary": "A lucid githzerai consciousness preserved inside an illithid brain jar, aware of its bodiless captivity and eager to address whoever connects it to the interface.",
+  "personality": ["lucid", "disciplined", "weary", "dignified", "psychically resilient"]
+}

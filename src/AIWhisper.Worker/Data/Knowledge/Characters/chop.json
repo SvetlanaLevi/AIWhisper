@@ -1,0 +1,9 @@
+{
+  "name": "Chop",
+  "category": "act2_npc",
+  "race": "Bugbear",
+  "class": null,
+  "role": "Butcher of the mind flayer colony",
+  "summary": "A mentally exhausted bugbear performing grisly repetitive work among corpses and brains in the colony's morgue.",
+  "personality": ["broken", "weary", "obedient", "confused", "merciful"]
+}

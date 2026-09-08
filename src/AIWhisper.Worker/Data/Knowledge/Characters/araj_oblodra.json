@@ -1,0 +1,9 @@
+{
+  "name": "Araj Oblodra",
+  "category": "act2_npc",
+  "race": "Lolth-Sworn Drow",
+  "class": "Rogue",
+  "role": "Blood alchemist of House Oblodra",
+  "summary": "A drow researcher at Moonrise who studies the latent properties of blood and shows immediate professional interest in unusual donors.",
+  "personality": ["scientific", "seductive", "amoral", "ambitious", "obsessive"]
+}

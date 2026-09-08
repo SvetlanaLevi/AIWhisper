@@ -1,0 +1,9 @@
+{
+  "name": "Orin the Red",
+  "category": "act2_npc",
+  "race": "Changeling",
+  "class": "Rogue",
+  "role": "Shapeshifting Bhaalist allied with Ketheric",
+  "summary": "A theatrical and visibly bloodthirsty shapeshifter who speaks to Ketheric and Gortash with the confidence of an equal.",
+  "personality": ["sadistic", "theatrical", "jealous", "unpredictable", "murderous"]
+}

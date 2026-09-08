@@ -1,0 +1,9 @@
+{
+  "name": "Kressa Bonedaughter",
+  "category": "act2_npc",
+  "race": "Human",
+  "class": "Wizard",
+  "role": "Myrkulite necromancer in the illithid colony",
+  "summary": "An obsessive necromancer who reacts to certain visitors with unsettling familiarity and takes an intensely personal interest in damaged bodies and minds.",
+  "personality": ["obsessive", "clinical", "possessive", "morbid", "unstable"]
+}

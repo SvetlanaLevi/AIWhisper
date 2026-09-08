@@ -1,0 +1,9 @@
+{
+  "name": "Malus Thorm",
+  "category": "act2_npc",
+  "race": "Undead Elf",
+  "class": null,
+  "role": "Surgeon of the House of Healing",
+  "summary": "A shadow-cursed surgeon calmly teaching that pain, blindness, and mutilation are sacred forms of treatment in Shar's service.",
+  "personality": ["didactic", "fanatical", "sadistic", "calm", "self-destructive"]
+}

@@ -1,0 +1,9 @@
+{
+  "name": "Disciple Z'rell",
+  "category": "act2_npc",
+  "race": "Half-Orc",
+  "class": "Warlock",
+  "role": "Ketheric's tadpoled second-in-command",
+  "summary": "A senior True Soul at Moonrise Towers who projects authority and is entirely comfortable testing another person's loyalty through psychic intrusion.",
+  "personality": ["authoritative", "cruel", "perceptive", "zealous", "psychically invasive"]
+}

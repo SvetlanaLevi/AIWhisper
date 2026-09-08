@@ -1,0 +1,9 @@
+{
+  "name": "Lann Tarv",
+  "category": "act2_npc",
+  "race": "Bugbear",
+  "class": null,
+  "role": "Moonrise quartermaster and cult veteran",
+  "summary": "A well-connected quartermaster who respects displays of strength and knows the culture of Ketheric's army. He offers a ground-level view of how the Absolute rewards violence, loyalty, and successful True Souls.",
+  "personality": ["boisterous", "pragmatic", "violent", "respectful of strength", "well-informed"]
+}

@@ -104,3 +104,21 @@ For update or remove, targetId must exactly match an existing memory ID.
 
 Development phase must not be used to discard potentially useful long-term memory.
 Phase relevance and Active Memory selection are handled separately by the application.
+
+DISCOVERED CHARACTER KNOWLEDGE
+
+In the same response, maintain factual knowledge discovered about the small whitelist
+in trackedCharacterNames. This is separate from subjective long-term memory.
+
+Only update a tracked character when the completed event batch explicitly states or
+directly demonstrates a durable fact about that character. Never use outside story
+knowledge, infer a secret, predict a later revelation, or copy an initial impression.
+The character does not need to be a speaker if the dialogue explicitly reveals a fact
+about them.
+
+When knowledge changes, return one characterKnowledgeUpdates item containing the
+complete revised knownFacts list for that character: retain still-valid existing facts,
+add the newly revealed fact concisely, refine duplicates, and remove only facts the
+dialogue disproves. Return no item for an unchanged character. An empty knownFacts list
+removes that character's discovered knowledge. Never update a name absent from
+trackedCharacterNames.

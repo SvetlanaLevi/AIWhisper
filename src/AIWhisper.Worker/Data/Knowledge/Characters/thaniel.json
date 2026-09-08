@@ -1,0 +1,9 @@
+{
+  "name": "Thaniel",
+  "category": "act2_npc",
+  "race": "Fey",
+  "class": null,
+  "role": "Spirit of the Shadow-Cursed Lands",
+  "summary": "A childlike nature spirit spoken of in connection with the blighted land and its lost vitality.",
+  "personality": ["gentle", "ancient", "vulnerable", "hopeful", "otherworldly"]
+}

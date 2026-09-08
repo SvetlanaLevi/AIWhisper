@@ -1,0 +1,9 @@
+{
+  "name": "Elder Brain",
+  "category": "act2_npc",
+  "race": "Aberration",
+  "class": null,
+  "role": "Immense illithid intelligence beneath Moonrise",
+  "summary": "A vast elder brain whose psychic presence is immediately overwhelming and disturbingly familiar to an illithid parasite.",
+  "personality": ["vast", "alien", "calculating", "patient", "psychically overwhelming"]
+}

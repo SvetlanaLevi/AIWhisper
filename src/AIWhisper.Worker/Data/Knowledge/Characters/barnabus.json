@@ -1,0 +1,9 @@
+{
+  "name": "Barnabus",
+  "category": "act2_npc",
+  "race": "Gnoll",
+  "class": null,
+  "role": "Moonrise gnoll",
+  "summary": "The tense leader of a gnoll pack in Moonrise, visibly struggling between hunger, fear, and an unseen pressure on his thoughts.",
+  "personality": ["hungry", "oppressed", "volatile", "pack-minded", "psychically receptive"]
+}

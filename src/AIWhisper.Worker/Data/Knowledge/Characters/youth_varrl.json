@@ -3,7 +3,7 @@
   "category": "act1_npc",
   "race": "Githyanki",
   "class": null,
-  "role": "Crèche trainee who questions Vlaakith's teachings",
-  "summary": "A young githyanki punished for showing mercy and privately receptive to forbidden accounts of Orpheus. His doubts reveal cracks in the culture bred to exterminate illithids and anyone carrying their parasites.",
+  "role": "Crèche trainee under punishment",
+  "summary": "A young githyanki trainee whose hesitation and discomfort distinguish him from the aggressive certainty expected in the crèche.",
   "personality": ["thoughtful", "compassionate", "fearful", "curious", "dissenting"]
 }

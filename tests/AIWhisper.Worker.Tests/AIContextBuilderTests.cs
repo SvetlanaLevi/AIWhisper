@@ -137,4 +137,23 @@ public class AIContextBuilderTests
         Assert.DoesNotContain("Zevlor may protect the host.", prompt);
         Assert.DoesNotContain("Astarion is an old acquaintance.", prompt);
     }
+
+    [Fact]
+    public void BuildUserPrompt_IncludesDiscoveredKnowledgeOnlyForCurrentSpeakers()
+    {
+        var campaign = new CampaignContext { CampaignId = "C1", Directory = "/tmp/C1" };
+        campaign.Memory.CharacterKnowledge.AddRange([
+            new() { CharacterName = "Ketheric Thorm", KnownFacts = ["He survived a fatal wound."] },
+            new() { CharacterName = "Raphael", KnownFacts = ["He wants the Crown."] },
+        ]);
+        var dialogue = new DialogueState { CampaignId = "C1", DialogueId = "D1" };
+        dialogue.Events.Add(MakeEvent("dialogue.line", DateTime.UtcNow,
+            """{"dialogueId":"D1","speaker":"Ketheric Thorm","text":"Bow."}"""));
+
+        var prompt = new AIContextBuilder().BuildUserPrompt(campaign, dialogue, 0);
+
+        Assert.Contains("DISCOVERED CHARACTER KNOWLEDGE", prompt);
+        Assert.Contains("Ketheric Thorm: He survived a fatal wound.", prompt);
+        Assert.DoesNotContain("He wants the Crown.", prompt);
+    }
 }

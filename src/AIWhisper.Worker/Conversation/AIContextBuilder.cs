@@ -44,7 +44,7 @@ public sealed class AIContextBuilder
         }
 
         AppendActiveMemory(sb, campaign, dialogue);
-        AppendCharacterKnowledge(sb, dialogue);
+        AppendCharacterKnowledge(sb, campaign, dialogue);
 
         if (campaign.History.Count > 0)
         {
@@ -89,21 +89,32 @@ public sealed class AIContextBuilder
         sb.AppendLine();
     }
 
-    private void AppendCharacterKnowledge(StringBuilder sb, DialogueState dialogue)
+    private void AppendCharacterKnowledge(StringBuilder sb, CampaignContext campaign, DialogueState dialogue)
     {
-        if (_characterKnowledge is null) return;
-
         var names = dialogue.Events
             .Where(evt => evt.Type == "dialogue.line")
             .Select(evt => GetString(evt.Data, "speaker"))
             .Where(name => !string.IsNullOrWhiteSpace(name))
             .Select(name => name!.Trim())
-            .Distinct(StringComparer.OrdinalIgnoreCase);
-        var matches = names.Select(_characterKnowledge.Find).Where(character => character is not null).Cast<CharacterKnowledge>().ToList();
-        if (matches.Count == 0) return;
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        var matches = _characterKnowledge is null
+            ? []
+            : names.Select(_characterKnowledge.Find).Where(character => character is not null).Cast<CharacterKnowledge>().ToList();
 
-        sb.AppendLine("CHARACTER KNOWLEDGE");
-        foreach (var character in matches) sb.AppendLine(CharacterKnowledgeFormatter.Format(character));
+        if (matches.Count > 0)
+        {
+            sb.AppendLine("CHARACTER KNOWLEDGE");
+            foreach (var character in matches) sb.AppendLine(CharacterKnowledgeFormatter.Format(character));
+            sb.AppendLine();
+        }
+
+        var discovered = campaign.Memory.CharacterKnowledge.Where(item =>
+            names.Contains(item.CharacterName, StringComparer.OrdinalIgnoreCase) && item.KnownFacts.Count > 0).ToList();
+        if (discovered.Count == 0) return;
+        sb.AppendLine("DISCOVERED CHARACTER KNOWLEDGE");
+        foreach (var item in discovered)
+            sb.AppendLine($"{item.CharacterName}: {string.Join("; ", item.KnownFacts)}");
         sb.AppendLine();
     }
 

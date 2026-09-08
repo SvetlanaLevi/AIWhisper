@@ -40,3 +40,9 @@ Subjective memory is stored as semantic items with application-generated IDs.
 For each completed dialogue batch, memory evaluation runs independently of the
 reaction decision. The reaction receives only a compact active subset selected
 first by development phase and then by the current characters and context.
+
+For a small configured whitelist of important characters, the same evaluation
+also maintains discovered character facts. Static JSON profiles contain only
+identity and first impressions; facts explicitly revealed during play are stored
+per campaign and shown only in later dialogues involving that character. These
+facts are included in save snapshots together with subjective memory.

@@ -1,0 +1,9 @@
+{
+  "name": "Thisobald Thorm",
+  "category": "act2_npc",
+  "race": "Undead",
+  "class": null,
+  "role": "Cursed brewer of the Waning Moon",
+  "summary": "A grotesquely swollen brewer who demands shared drinks and entertaining stories while his altered body churns with volatile liquid.",
+  "personality": ["boisterous", "intoxicated", "curious", "volatile", "lonely"]
+}

@@ -1,0 +1,9 @@
+{
+  "name": "Yurgir",
+  "category": "act2_npc",
+  "race": "Orthon",
+  "class": null,
+  "role": "Infernal hunter trapped by Raphael's contract",
+  "summary": "A powerful orthon stranded in the Gauntlet by an infernal contract, surrounded by merregons and visibly frustrated by an unfinished hunt.",
+  "personality": ["predatory", "honour-bound", "frustrated", "cunning", "violent"]
+}

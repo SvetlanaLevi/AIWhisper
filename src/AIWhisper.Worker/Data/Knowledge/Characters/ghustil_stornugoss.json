@@ -4,6 +4,6 @@
   "race": "Githyanki",
   "class": null,
   "role": "Crèche physician and zaith'isk researcher",
-  "summary": "A healer-researcher who operates the zaith'isk, ostensibly a cure for illithid infection. Her consuming interest in tadpoles and willingness to sacrifice infected subjects make her expertise both uniquely valuable and immediately dangerous.",
+  "summary": "A clinical githyanki healer who operates the zaith'isk and displays intense professional interest in anyone carrying an illithid parasite.",
   "personality": ["clinical", "obsessive", "deceptive", "curious", "ruthless"]
 }

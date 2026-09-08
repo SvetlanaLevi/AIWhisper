@@ -1,0 +1,9 @@
+{
+  "name": "Madeline",
+  "category": "act2_npc",
+  "race": "Dwarf",
+  "class": null,
+  "role": "Dead tavern worker channelled through He Who Was",
+  "summary": "A frightened spirit made to speak through another person's body during a ritual judgement concerning events at the Waning Moon.",
+  "personality": ["remorseful", "frightened", "guilt-ridden", "defensive", "tragic"]
+}

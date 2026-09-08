@@ -1,0 +1,9 @@
+{
+  "name": "He Who Was",
+  "category": "act2_npc",
+  "race": "Shadar-kai",
+  "class": "Ranger",
+  "role": "Wandering judge of the cursed dead",
+  "summary": "An austere shadar-kai conducting a ritual beside a corpse and seeking help to judge the dead woman's actions.",
+  "personality": ["austere", "vengeful", "ritualistic", "cold", "morbid"]
+}

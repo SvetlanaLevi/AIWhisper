@@ -1,0 +1,9 @@
+{
+  "name": "The Warden",
+  "category": "act2_npc",
+  "race": "Drow",
+  "class": null,
+  "role": "Overseer of Moonrise Towers Prison",
+  "summary": "The calculating and vigilant officer responsible for prisoners held beneath Moonrise Towers.",
+  "personality": ["methodical", "suspicious", "cruel", "authoritarian", "vigilant"]
+}

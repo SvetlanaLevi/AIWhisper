@@ -69,9 +69,21 @@ public sealed class OpenAIMemoryEvaluator : IMemoryEvaluator
                 "required": ["kind", "targetId", "summary", "category", "characterName", "tags"],
                 "additionalProperties": false
               }
+            },
+            "characterKnowledgeUpdates": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "characterName": { "type": "string" },
+                  "knownFacts": { "type": "array", "items": { "type": "string" } }
+                },
+                "required": ["characterName", "knownFacts"],
+                "additionalProperties": false
+              }
             }
           },
-          "required": ["operations"],
+          "required": ["operations", "characterKnowledgeUpdates"],
           "additionalProperties": false
         }
         """);
@@ -102,6 +114,7 @@ public sealed class OpenAIMemoryEvaluator : IMemoryEvaluator
                 var result = JsonSerializer.Deserialize<MemoryEvaluationResult>(responseText, SerializerOptions)
                     ?? throw new InvalidOperationException("empty structured memory evaluation response");
                 result.Operations ??= [];
+                result.CharacterKnowledgeUpdates ??= [];
                 _aiRequestLog.Write(request.CampaignId, "memory-evaluation", _options.Model,
                     userContext, responseText, attempt, stopwatch, systemInstructions: instructions);
                 return result;

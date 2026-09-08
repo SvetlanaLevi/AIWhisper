@@ -216,9 +216,20 @@ public sealed class ConversationManager
                 .Cast<string>()
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToList();
+            var eligibleTrackedCharacters = _memoryOptions.TrackedCharacters
+                .Where(name => !string.IsNullOrWhiteSpace(name))
+                .Where(name => characters.Contains(name, StringComparer.OrdinalIgnoreCase) ||
+                    transcript.Contains(name, StringComparison.OrdinalIgnoreCase))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            var existingCharacterKnowledge = _campaign.Memory.CharacterKnowledge
+                .Where(item => eligibleTrackedCharacters.Contains(item.CharacterName, StringComparer.OrdinalIgnoreCase))
+                .ToList();
             var result = await _memoryEvaluator.EvaluateAsync(new MemoryEvaluationRequest(
                 _campaign.CampaignId,
                 _campaign.Memory.LongTermMemory.ToList(),
+                existingCharacterKnowledge,
+                eligibleTrackedCharacters,
                 transcript,
                 dialogue.DialogueId,
                 _campaign.Development.CurrentPhase,
@@ -229,16 +240,23 @@ public sealed class ConversationManager
                 _campaign.Memory,
                 result.Operations,
                 _memoryOptions.MaxLongTermItems);
+            var characterKnowledgeApplied = DiscoveredCharacterKnowledgeApplier.Apply(
+                _campaign.Memory,
+                result.CharacterKnowledgeUpdates,
+                eligibleTrackedCharacters,
+                _memoryOptions.MaxKnownFactsPerCharacter);
             foreach (var target in applied.UnknownTargets)
                 _log.Warn($"campaign {_campaign.CampaignId}: memory operation references unknown target {target}; ignored");
-            if (!applied.Changed)
+            foreach (var character in characterKnowledgeApplied.RejectedCharacters)
+                _log.Warn($"campaign {_campaign.CampaignId}: discovered knowledge update for untracked character '{character}' was ignored");
+            if (!applied.Changed && !characterKnowledgeApplied.Changed)
             {
                 _log.Info($"campaign {_campaign.CampaignId}: memory evaluation for dialogue {dialogue.DialogueId} contained no changes");
                 return;
             }
 
             await _memoryStore.SaveAsync(_campaign.Memory, cancellationToken);
-            _log.Info($"campaign {_campaign.CampaignId}: subjective memory updated and saved after dialogue {dialogue.DialogueId}");
+            _log.Info($"campaign {_campaign.CampaignId}: memory updated and saved after dialogue {dialogue.DialogueId}");
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {

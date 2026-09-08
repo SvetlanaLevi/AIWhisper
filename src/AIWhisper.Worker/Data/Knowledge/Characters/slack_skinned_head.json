@@ -1,0 +1,9 @@
+{
+  "name": "Slack-Skinned Head",
+  "category": "act2_npc",
+  "race": "Elf",
+  "class": null,
+  "role": "Living interface for preserved minds",
+  "summary": "A severed living head wired to an illithid device and apparently able to give voice to consciousness stored in nearby brain jars.",
+  "personality": ["vacant", "receptive", "distressed", "many-voiced", "unnatural"]
+}

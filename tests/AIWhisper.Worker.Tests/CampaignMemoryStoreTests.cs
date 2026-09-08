@@ -18,6 +18,7 @@ public sealed class CampaignMemoryStoreTests : IDisposable
             .LoadAsync(CancellationToken.None);
 
         Assert.Empty(memory.LongTermMemory);
+        Assert.Empty(memory.CharacterKnowledge);
     }
 
     [Fact]
@@ -34,6 +35,11 @@ public sealed class CampaignMemoryStoreTests : IDisposable
                 CharacterName = "Gale",
                 Tags = ["cure", "tadpole"],
             }],
+            CharacterKnowledge = [new DiscoveredCharacterKnowledge
+            {
+                CharacterName = "Ketheric Thorm",
+                KnownFacts = ["He survived a fatal wound."],
+            }],
         };
 
         await new CampaignMemoryStore(path).SaveAsync(original, CancellationToken.None);
@@ -45,6 +51,9 @@ public sealed class CampaignMemoryStoreTests : IDisposable
         Assert.Equal(MemoryCategory.RemovalThreat, item.Category);
         Assert.Equal("Gale", item.CharacterName);
         Assert.Equal(["cure", "tadpole"], item.Tags);
+        var character = Assert.Single(loaded.CharacterKnowledge);
+        Assert.Equal("Ketheric Thorm", character.CharacterName);
+        Assert.Equal(["He survived a fatal wound."], character.KnownFacts);
     }
 
     [Fact]
@@ -56,6 +65,7 @@ public sealed class CampaignMemoryStoreTests : IDisposable
         var memory = await new CampaignMemoryStore(path).LoadAsync(CancellationToken.None);
 
         Assert.Empty(memory.LongTermMemory);
+        Assert.Empty(memory.CharacterKnowledge);
         Assert.True(File.Exists(path));
     }
 
@@ -76,6 +86,7 @@ public sealed class CampaignMemoryStoreTests : IDisposable
         var memory = await new CampaignMemoryStore(path).LoadAsync(CancellationToken.None);
 
         Assert.Empty(memory.LongTermMemory);
+        Assert.Empty(memory.CharacterKnowledge);
     }
 
     public void Dispose()

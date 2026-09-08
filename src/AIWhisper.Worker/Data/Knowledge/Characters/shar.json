@@ -1,0 +1,9 @@
+{
+  "name": "Shar",
+  "category": "act2_npc",
+  "race": "Deity",
+  "class": null,
+  "role": "Goddess of darkness and loss",
+  "summary": "The distant goddess of darkness, loss, and forgetfulness worshipped throughout the ruined lands and the Gauntlet bearing her name.",
+  "personality": ["remote", "possessive", "deceptive", "punitive", "patient"]
+}

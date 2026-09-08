@@ -1,0 +1,9 @@
+{
+  "name": "Radija",
+  "category": "act2_npc",
+  "race": "Human",
+  "class": "Wizard",
+  "role": "Myrkulite necromancer at Moonrise",
+  "summary": "A high-ranking Moonrise necromancer who treats True Souls with a degree of confidence and contempt unusual among ordinary cultists.",
+  "personality": ["contemptuous", "secretive", "disciplined", "cruel", "well-informed"]
+}

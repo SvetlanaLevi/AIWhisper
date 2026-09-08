@@ -33,6 +33,11 @@ public sealed class ConversationManagerMemoryTests : IDisposable
                     Category = MemoryCategory.RemovalThreat,
                     Tags = ["treatment", "parasite"],
                 }],
+                CharacterKnowledgeUpdates = [new CharacterKnowledgeUpdate
+                {
+                    CharacterName = "Gale",
+                    KnownFacts = ["Gale offered to help the grove."],
+                }],
             },
         };
         var manager = new ConversationManager(
@@ -44,7 +49,7 @@ public sealed class ConversationManagerMemoryTests : IDisposable
             "system prompt",
             20,
             store,
-            new MemoryOptions(),
+            new MemoryOptions { TrackedCharacters = ["Gale"] },
             memoryEvaluator: memoryEvaluator);
         var dialogue = CreateDialogue();
 
@@ -56,9 +61,12 @@ public sealed class ConversationManagerMemoryTests : IDisposable
         Assert.Contains("Gale: The grove needs help.", memoryEvaluator.LastRequest!.Transcript);
         Assert.Contains("Player chose: We should help.", memoryEvaluator.LastRequest.Transcript);
         Assert.DoesNotContain("The host rejected treatment", ai.LastContext!.UserPrompt);
+        Assert.DoesNotContain("Gale offered to help the grove.", ai.LastContext.UserPrompt);
         Assert.Equal("silent", campaign.History.Single().AiAction);
         Assert.Equal("The host rejected treatment that could endanger the parasite.",
             restoredMemory.LongTermMemory.Single().Summary);
+        Assert.Equal("Gale offered to help the grove.",
+            restoredMemory.CharacterKnowledge.Single().KnownFacts.Single());
     }
 
     [Fact]

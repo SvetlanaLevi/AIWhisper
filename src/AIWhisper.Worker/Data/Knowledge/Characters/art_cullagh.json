@@ -1,0 +1,9 @@
+{
+  "name": "Art Cullagh",
+  "category": "act2_npc",
+  "race": "Human",
+  "class": "Fighter",
+  "role": "Unconscious Flaming Fist",
+  "summary": "A bedridden veteran trapped in an unnatural sleep, murmuring fragments of a song about someone named Thaniel.",
+  "personality": ["haunted", "dutiful", "gentle", "resilient", "disoriented"]
+}

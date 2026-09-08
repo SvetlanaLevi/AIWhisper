@@ -1,0 +1,9 @@
+{
+  "name": "Gerringothe Thorm",
+  "category": "act2_npc",
+  "race": "Undead",
+  "class": null,
+  "role": "Accursed toll collector of Reithwin",
+  "summary": "An intelligent undead being encased in living gold and reduced to an endless demand for payment. Her curse turns a former social duty and private greed into both body and identity.",
+  "personality": ["avaricious", "repetitive", "authoritarian", "brittle", "obsessive"]
+}

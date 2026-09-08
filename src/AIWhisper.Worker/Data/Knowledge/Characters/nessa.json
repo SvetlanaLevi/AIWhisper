@@ -1,0 +1,9 @@
+{
+  "name": "Nessa",
+  "category": "act2_npc",
+  "race": "Displacer Beast",
+  "class": null,
+  "role": "Yurgir's displacer beast companion",
+  "summary": "An intelligent displacer beast displaying unusually intense devotion to the orthon Yurgir.",
+  "personality": ["predatory", "devoted", "watchful", "intelligent", "territorial"]
+}

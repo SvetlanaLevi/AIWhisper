@@ -1,0 +1,9 @@
+{
+  "name": "Squire",
+  "category": "act2_npc",
+  "race": "Undead Mastiff",
+  "class": null,
+  "role": "Ketheric Thorm's undead war hound",
+  "summary": "An undead mastiff guarding Ketheric's quarters, still displaying alertness, loyalty, and traces of an ordinary animal personality.",
+  "personality": ["loyal", "protective", "alert", "affectionate", "undead"]
+}

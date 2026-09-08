@@ -1,0 +1,9 @@
+{
+  "name": "Oliver",
+  "category": "act2_npc",
+  "race": "Fey",
+  "class": null,
+  "role": "Mysterious fey child in the shadows",
+  "summary": "A lonely but dangerous child who treats games with conjured shadows and an imaginary family as ordinary play.",
+  "personality": ["playful", "lonely", "petulant", "dangerous", "possessive"]
+}

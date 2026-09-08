@@ -1,0 +1,9 @@
+{
+  "name": "Lyrthindor",
+  "category": "act2_npc",
+  "race": "Elf",
+  "class": null,
+  "role": "Sharran warrior with an unnatural connection to rats",
+  "summary": "A desperate Sharran presence associated with the strangely coordinated rats roaming the Gauntlet of Shar.",
+  "personality": ["devout", "desperate", "secretive", "resilient", "fearful"]
+}

@@ -52,10 +52,16 @@ public sealed class CampaignMemoryStore
     internal static void NormalizeCollections(CampaignMemory memory)
     {
         memory.LongTermMemory ??= [];
+        memory.CharacterKnowledge ??= [];
         foreach (var item in memory.LongTermMemory)
         {
             item.Summary ??= string.Empty;
             item.Tags ??= [];
+        }
+        foreach (var item in memory.CharacterKnowledge)
+        {
+            item.CharacterName ??= string.Empty;
+            item.KnownFacts ??= [];
         }
     }
 }

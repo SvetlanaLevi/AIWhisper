@@ -1,0 +1,9 @@
+{
+  "name": "Korrilla Hearthflame",
+  "category": "act2_npc",
+  "race": "Gold Dwarf",
+  "class": "Warlock",
+  "role": "Elusive dwarven warlock",
+  "summary": "A guarded warlock who appears briefly, smells faintly of sulphur, and behaves as though she already knows more about the party than she explains.",
+  "personality": ["watchful", "discreet", "pragmatic", "loyal", "calculating"]
+}

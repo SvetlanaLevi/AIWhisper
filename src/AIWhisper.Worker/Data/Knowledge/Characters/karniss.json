@@ -1,0 +1,9 @@
+{
+  "name": "Kar'niss",
+  "category": "act2_npc",
+  "race": "Drider",
+  "class": null,
+  "role": "Absolute's moonlantern guide",
+  "summary": "An unstable and fanatically devout drider carrying a moonlantern and guiding a cultist convoy through the Shadow Curse.",
+  "personality": ["fanatical", "unstable", "submissive", "suspicious", "tormented"]
+}

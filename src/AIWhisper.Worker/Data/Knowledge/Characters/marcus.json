@@ -1,0 +1,9 @@
+{
+  "name": "Marcus",
+  "category": "act2_npc",
+  "race": "Human (altered)",
+  "class": null,
+  "role": "Winged Flaming Fist",
+  "summary": "A familiar-looking Flaming Fist whose grotesque wings and strange psychic presence make his arrival at Last Light immediately suspicious.",
+  "personality": ["treacherous", "self-assured", "ruthless", "deceptive", "obedient"]
+}

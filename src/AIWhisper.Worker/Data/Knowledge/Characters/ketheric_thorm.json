@@ -1,10 +1,10 @@
 {
   "name": "Ketheric Thorm",
   "category": "act2_npc",
-  "race": "Half-Elf",
+  "race": "High Half-Elf",
   "class": "Paladin",
   "role": "General of the Absolute",
-  "summary": "A grim military leader whose restrained manner and imposing authority make him more threatening than theatrical.",
+  "summary": "The imposing general of the Absolute, displaying cold authority, military discipline, and an unnerving lack of concern for threats to his body.",
   "personality": [
     "stoic",
     "authoritative",

@@ -1,0 +1,9 @@
+{
+  "name": "Dolly Dolly Dolly",
+  "category": "act2_npc",
+  "race": "Pixie",
+  "class": null,
+  "role": "Pixie imprisoned in a moonlantern",
+  "summary": "A furious, foul-mouthed pixie trapped inside a moonlantern, demanding release from the device that exploits her magic.",
+  "personality": ["mischievous", "profane", "impatient", "grateful", "powerful"]
+}

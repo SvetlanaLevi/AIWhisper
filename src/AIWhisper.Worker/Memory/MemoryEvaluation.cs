@@ -6,6 +6,8 @@ namespace AIWhisper.Worker.Memory;
 public sealed record MemoryEvaluationRequest(
     string CampaignId,
     IReadOnlyList<ParasiteMemoryItem> ExistingMemory,
+    IReadOnlyList<DiscoveredCharacterKnowledge> ExistingCharacterKnowledge,
+    IReadOnlyList<string> TrackedCharacterNames,
     string Transcript,
     string DialogueId,
     string? DevelopmentPhase,
@@ -15,6 +17,7 @@ public sealed record MemoryEvaluationRequest(
 public sealed class MemoryEvaluationResult
 {
     public List<MemoryOperation> Operations { get; set; } = [];
+    public List<CharacterKnowledgeUpdate> CharacterKnowledgeUpdates { get; set; } = [];
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter))]

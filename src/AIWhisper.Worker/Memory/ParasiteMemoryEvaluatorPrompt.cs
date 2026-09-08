@@ -13,5 +13,7 @@ public static class ParasiteMemoryEvaluatorPrompt
             request.Region,
             currentCharacters = request.CurrentCharacters,
             existingLongTermMemory = request.ExistingMemory,
+            trackedCharacterNames = request.TrackedCharacterNames,
+            existingCharacterKnowledge = request.ExistingCharacterKnowledge,
         });
 }

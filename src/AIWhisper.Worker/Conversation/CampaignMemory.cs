@@ -9,4 +9,5 @@ using AIWhisper.Worker.Memory;
 public sealed class CampaignMemory
 {
     public List<ParasiteMemoryItem> LongTermMemory { get; set; } = [];
+    public List<DiscoveredCharacterKnowledge> CharacterKnowledge { get; set; } = [];
 }

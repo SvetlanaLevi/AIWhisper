@@ -1,0 +1,9 @@
+{
+  "name": "Myrkul",
+  "category": "act2_npc",
+  "race": "Deity",
+  "class": null,
+  "role": "God of death and patron of Ketheric",
+  "summary": "The Lord of Bones speaks through his defeated Chosen and manifests an immense apostle beneath Moonrise. His power over death, undeath, and mortal terror sustains Ketheric's part in the Absolute conspiracy.",
+  "personality": ["implacable", "ominous", "possessive", "merciless", "ancient"]
+}

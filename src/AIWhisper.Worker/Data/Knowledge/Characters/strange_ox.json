@@ -1,0 +1,9 @@
+{
+  "name": "Strange Ox",
+  "category": "act2_npc",
+  "race": "Ox (apparent)",
+  "class": null,
+  "role": "Unusually intelligent refugee ox",
+  "summary": "An outwardly ordinary ox whose guarded behaviour and strange mental presence suggest that it does not want close examination.",
+  "personality": ["secretive", "controlled", "alien", "threatening", "determined"]
+}
