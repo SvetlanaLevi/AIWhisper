@@ -1,0 +1,9 @@
+{
+  "name": "Ch'r'ai W'wargaz",
+  "category": "act1_npc",
+  "race": "Githyanki",
+  "class": null,
+  "role": "Inquisitor of Vlaakith",
+  "summary": "A senior inquisitor charged with recovering the Astral Prism. His formidable psionics, knowledge of ghaik threats, and direct communion with Vlaakith make him one of the most dangerous minds the parasite encounters in the first act.",
+  "personality": ["fanatical", "interrogative", "calculating", "arrogant", "psionically gifted"]
+}

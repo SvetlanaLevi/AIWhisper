@@ -1,0 +1,9 @@
+{
+  "name": "Sarth Baretha",
+  "category": "act1_npc",
+  "race": "Githyanki",
+  "class": "Fighter",
+  "role": "Leader of a githyanki search patrol",
+  "summary": "The field commander ordered to locate the Astral Prism and execute anyone carrying a ghaik parasite. Her patrol provides the first direct measure of how efficiently trained githyanki recognize and eradicate infected hosts.",
+  "personality": ["militaristic", "disciplined", "hostile", "obedient", "zealous"]
+}

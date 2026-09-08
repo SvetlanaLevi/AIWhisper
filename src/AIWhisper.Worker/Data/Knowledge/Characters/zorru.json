@@ -1,0 +1,9 @@
+{
+  "name": "Zorru",
+  "category": "act1_npc",
+  "race": "Tiefling",
+  "class": null,
+  "role": "Refugee and survivor of a githyanki attack",
+  "summary": "A terrified survivor who can direct the party toward the githyanki patrol. His fear, eyewitness knowledge, and vulnerability to Lae'zel's interrogation make him a useful route to enemies who know how to identify and kill tadpoles.",
+  "personality": ["traumatized", "fearful", "resentful", "cautious", "informative"]
+}

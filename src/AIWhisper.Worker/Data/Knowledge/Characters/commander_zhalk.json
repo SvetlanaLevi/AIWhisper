@@ -1,0 +1,9 @@
+{
+  "name": "Commander Zhalk",
+  "category": "act1_npc",
+  "race": "Cambion",
+  "class": null,
+  "role": "Infernal commander attacking the nautiloid",
+  "summary": "A cambion who boards the burning nautiloid and battles its mind flayer pilot while the newly infected hosts escape. His resistance to illithid control and firsthand role in the parasite's chaotic birth make his presence memorable even without an alliance.",
+  "personality": ["relentless", "commanding", "wrathful", "disciplined", "fearless"]
+}

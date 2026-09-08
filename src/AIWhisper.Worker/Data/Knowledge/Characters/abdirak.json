@@ -1,0 +1,9 @@
+{
+  "name": "Abdirak",
+  "category": "act1_npc",
+  "race": "Human",
+  "class": "Cleric",
+  "role": "Pain priest of Loviatar",
+  "summary": "A traveling devotee who treats controlled suffering as worship and can grant a lasting blessing through ritual pain. His expertise in fear, endurance, and the body's response to torment gives the parasite an unusual view of its host's limits.",
+  "personality": ["devout", "sensual", "observant", "composed", "sadistic"]
+}

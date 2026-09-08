@@ -1,0 +1,9 @@
+{
+  "name": "Us",
+  "category": "act1_npc",
+  "race": "Intellect Devourer",
+  "class": null,
+  "role": "Illithid newborn and potential ally",
+  "summary": "A newly formed intellect devourer rescued from a captive's skull aboard the nautiloid. Its childlike speech, telepathy, and instinctive loyalty offer a close look at another creature born from illithid transformation.",
+  "personality": ["childlike", "telepathic", "eager", "alien", "loyal"]
+}

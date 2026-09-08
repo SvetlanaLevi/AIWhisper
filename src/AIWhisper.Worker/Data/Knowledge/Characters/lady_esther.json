@@ -1,0 +1,9 @@
+{
+  "name": "Lady Esther",
+  "category": "act1_npc",
+  "race": "Human",
+  "class": null,
+  "role": "Society of Brilliance contractor",
+  "summary": "An adventurer commissioned to steal a githyanki egg for an experiment intended to settle whether violent nature can be overcome by upbringing. Her mission touches the same question of whether an implanted creature must fulfill its expected destiny.",
+  "personality": ["pragmatic", "patronizing", "persistent", "morally flexible", "inquisitive"]
+}

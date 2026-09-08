@@ -1,0 +1,9 @@
+{
+  "name": "Flind",
+  "category": "act1_npc",
+  "race": "Gnoll",
+  "class": null,
+  "role": "Tadpoled gnoll warlord",
+  "summary": "A powerful gnoll leader whose unnatural tadpole connection lets another infected mind redirect her hunger, turn her against her pack, or compel her to destroy herself. She is a vivid test of psychic dominance over a bestial host.",
+  "personality": ["ravenous", "violent", "dominant", "feral", "psychically vulnerable"]
+}

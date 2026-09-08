@@ -1,0 +1,9 @@
+{
+  "name": "Ghustil Stornugoss",
+  "category": "act1_npc",
+  "race": "Githyanki",
+  "class": null,
+  "role": "Crèche physician and zaith'isk researcher",
+  "summary": "A healer-researcher who operates the zaith'isk, ostensibly a cure for illithid infection. Her consuming interest in tadpoles and willingness to sacrifice infected subjects make her expertise both uniquely valuable and immediately dangerous.",
+  "personality": ["clinical", "obsessive", "deceptive", "curious", "ruthless"]
+}

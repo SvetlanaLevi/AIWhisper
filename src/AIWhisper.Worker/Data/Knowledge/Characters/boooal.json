@@ -1,0 +1,9 @@
+{
+  "name": "BOOOAL",
+  "category": "act1_npc",
+  "race": "Redcap",
+  "class": null,
+  "role": "False god of the Festering Cove",
+  "summary": "A redcap masquerading as a god before enthralled kuo-toa, growing stronger through their belief and blood sacrifices. His manufactured divinity is a compact lesson in how a dominating presence can turn devotion into tangible power.",
+  "personality": ["bloodthirsty", "deceptive", "theatrical", "domineering", "opportunistic"]
+}

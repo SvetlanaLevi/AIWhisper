@@ -1,0 +1,9 @@
+{
+  "name": "Kith'rak Voss",
+  "category": "act1_npc",
+  "race": "Githyanki",
+  "class": "Fighter",
+  "role": "Vlaakith's legendary dragon rider",
+  "summary": "An ancient githyanki commander hunting the Astral Prism and any survivors of the nautiloid. He can detect the parasite with magic, knows the gith war against mind flayers intimately, and conceals loyalties that complicate Vlaakith's orders.",
+  "personality": ["imperious", "ruthless", "perceptive", "secretive", "strategic"]
+}

@@ -1,0 +1,9 @@
+{
+  "name": "Bernard",
+  "category": "act1_npc",
+  "race": "Construct",
+  "class": null,
+  "role": "Arcane tower guardian",
+  "summary": "An automaton in Lenore's tower that responds to programmed poetic commands with comfort or violence. A mind without flesh, appetite, or a soul presents the parasite with an unusual boundary: intelligence it may perceive but cannot inhabit normally.",
+  "personality": ["literal", "watchful", "ritualistic", "protective", "inflexible"]
+}

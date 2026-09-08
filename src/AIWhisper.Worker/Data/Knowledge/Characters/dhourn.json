@@ -1,0 +1,9 @@
+{
+  "name": "Dhourn",
+  "category": "act1_npc",
+  "race": "Drow",
+  "class": "Wizard",
+  "role": "Petrified seeker of the Adamantine Forge",
+  "summary": "A drow mage preserved in stone while carrying one fragment of the memory crystal that reveals the Adamantine Forge. His magically suspended mind and hoarded knowledge reward careful interrogation or predation.",
+  "personality": ["arrogant", "ambitious", "suspicious", "competitive", "learned"]
+}

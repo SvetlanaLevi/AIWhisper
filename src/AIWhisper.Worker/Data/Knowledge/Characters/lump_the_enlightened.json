@@ -1,0 +1,9 @@
+{
+  "name": "Lump the Enlightened",
+  "category": "act1_npc",
+  "race": "Ogre",
+  "class": null,
+  "role": "Unnaturally intelligent ogre mercenary",
+  "summary": "An eloquent ogre whose intelligence comes from a warped magical headband rather than his natural mind. His altered cognition, appetite, and negotiable loyalty make him an intriguing example of identity reshaped by a foreign influence.",
+  "personality": ["eloquent", "calculating", "greedy", "proud", "hungry"]
+}

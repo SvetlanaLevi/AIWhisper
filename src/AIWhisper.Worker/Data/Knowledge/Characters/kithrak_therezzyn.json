@@ -1,0 +1,9 @@
+{
+  "name": "Kith'rak Therezzyn",
+  "category": "act1_npc",
+  "race": "Githyanki",
+  "class": "Fighter",
+  "role": "Commander of Crèche Y'llek",
+  "summary": "The crèche commander oversees the hunt for the Astral Prism and controls access to the inquisitor. She is trained to expose deception, identify infected intruders, and enforce Vlaakith's lethal doctrine toward parasites.",
+  "personality": ["authoritarian", "suspicious", "proud", "disciplined", "merciless"]
+}
