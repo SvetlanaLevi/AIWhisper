@@ -7,7 +7,7 @@
     <RootNamespace>AIWhisper.Worker</RootNamespace>
     <UserSecretsId>dialog-extractor-worker</UserSecretsId>
     <InvariantGlobalization>true</InvariantGlobalization>
-    <Version>0.1.0-alpha.2</Version>
+    <Version>0.1.0-alpha.3</Version>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
   </PropertyGroup>
 
