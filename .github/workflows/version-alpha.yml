@@ -14,7 +14,6 @@ concurrency:
 
 jobs:
   version:
-    if: ${{ !contains(github.event.head_commit.message, '[skip version]') }}
     runs-on: windows-latest
 
     steps:
@@ -43,7 +42,6 @@ jobs:
           fi
 
           base_version="${BASH_REMATCH[1]}"
-          current_number="${BASH_REMATCH[2]}"
           latest_tag="$(git tag --list "v${base_version}-alpha.*" --sort=-version:refname | head -n 1)"
           tagged_number=0
 
@@ -51,20 +49,17 @@ jobs:
             tagged_number="${BASH_REMATCH[1]}"
           fi
 
-          if (( tagged_number > current_number )); then
-            current_number="$tagged_number"
-          fi
-
-          next_version="${base_version}-alpha.$((current_number + 1))"
-          sed -i "s#<Version>${current_version}</Version>#<Version>${next_version}</Version>#" "$project"
+          next_version="${base_version}-alpha.$((tagged_number + 1))"
 
           echo "version=$next_version" >> "$GITHUB_OUTPUT"
           echo "Next version: $next_version"
 
       - name: Test
-        run: dotnet test tests/AIWhisper.Worker.Tests/AIWhisper.Worker.Tests.csproj
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: dotnet test tests/AIWhisper.Worker.Tests/AIWhisper.Worker.Tests.csproj -p:Version=$env:VERSION
 
-      - name: Commit version and create tag
+      - name: Create version tag
         env:
           VERSION: ${{ steps.version.outputs.version }}
         shell: bash
@@ -73,7 +68,5 @@ jobs:
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src/AIWhisper.Worker/AIWhisper.Worker.csproj
-          git commit -m "chore: bump version to ${VERSION} [skip version]"
           git tag -a "v${VERSION}" -m "AIWhisper ${VERSION}"
-          git push origin HEAD:main --follow-tags
+          git push origin "v${VERSION}"
