@@ -10,6 +10,7 @@ public sealed class ParasiteMemoryPhasePolicy
         MemoryCategory.Ceremorphosis,
         MemoryCategory.ParasiteNature,
         MemoryCategory.HostAttitude,
+        MemoryCategory.ParasiteIntent,
     ];
 
     private static readonly string[] AwakeningTags =

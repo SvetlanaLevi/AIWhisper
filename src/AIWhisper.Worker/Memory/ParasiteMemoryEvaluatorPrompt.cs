@@ -12,6 +12,7 @@ public static class ParasiteMemoryEvaluatorPrompt
             currentDevelopmentPhase = request.DevelopmentPhase,
             request.Region,
             currentCharacters = request.CurrentCharacters,
+            parasiteRemark = request.ParasiteRemark,
             existingLongTermMemory = request.ExistingMemory,
             trackedCharacterNames = request.TrackedCharacterNames,
             existingCharacterKnowledge = request.ExistingCharacterKnowledge,

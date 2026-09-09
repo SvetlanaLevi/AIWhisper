@@ -62,6 +62,7 @@ public sealed class ConversationManagerMemoryTests : IDisposable
         Assert.Equal(1, memoryEvaluator.Calls);
         Assert.Contains("Gale: The grove needs help.", memoryEvaluator.LastRequest!.Transcript);
         Assert.Contains("Player chose: We should help.", memoryEvaluator.LastRequest.Transcript);
+        Assert.Null(memoryEvaluator.LastRequest.ParasiteRemark);
         Assert.DoesNotContain("The host rejected treatment", ai.LastContext!.UserPrompt);
         Assert.DoesNotContain("Gale offered to help the grove.", ai.LastContext.UserPrompt);
         Assert.Equal("silent", campaign.History.Single().AiAction);
@@ -96,6 +97,7 @@ public sealed class ConversationManagerMemoryTests : IDisposable
 
         await processing.WaitAsync(TimeSpan.FromSeconds(1));
         Assert.False(memoryEvaluator.AllowEvaluation.Task.IsCompleted);
+        Assert.Equal("A comment.", memoryEvaluator.LastRequest?.ParasiteRemark);
         Assert.Equal("speak", campaign.History.Single().AiAction);
 
         memoryEvaluator.AllowEvaluation.TrySetResult();
@@ -182,6 +184,33 @@ public sealed class ConversationManagerMemoryTests : IDisposable
         Assert.Equal(0, memoryEvaluator.Calls);
         Assert.Empty(campaign.History);
         Assert.Empty(campaign.ProcessedDialogueFingerprints);
+    }
+
+    [Fact]
+    public async Task ProcessAsync_ShortNpcOnlyChatter_SkipsMemoryAndAi()
+    {
+        var campaign = new CampaignContext { CampaignId = "C1", Directory = _directory };
+        var ai = new FakeAiService(AIDecisionAction.Speak);
+        var memoryEvaluator = new FakeMemoryEvaluator();
+        var manager = new ConversationManager(
+            campaign,
+            new AIContextBuilder(),
+            ai,
+            new UnusedTextToSpeech(),
+            new NullLog(),
+            "system",
+            20,
+            new CampaignMemoryStore(Path.Combine(_directory, "memory.json")),
+            new MemoryOptions(),
+            memoryEvaluator: memoryEvaluator);
+        var dialogue = CreateDialogue();
+        dialogue.Events.RemoveAll(evt => evt.Type == "dialogue.choice");
+
+        await manager.ProcessAsync(dialogue, default);
+
+        Assert.Equal(0, ai.Calls);
+        Assert.Equal(0, memoryEvaluator.Calls);
+        Assert.Empty(campaign.History);
     }
 
     private static DialogueState CreateDialogue()
@@ -286,11 +315,13 @@ public sealed class ConversationManagerMemoryTests : IDisposable
     private sealed class BlockingMemoryEvaluator : IMemoryEvaluator
     {
         public TaskCompletionSource AllowEvaluation { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public MemoryEvaluationRequest? LastRequest { get; private set; }
 
         public async Task<MemoryEvaluationResult> EvaluateAsync(
             MemoryEvaluationRequest request,
             CancellationToken cancellationToken)
         {
+            LastRequest = request;
             await AllowEvaluation.Task.WaitAsync(cancellationToken);
             return new MemoryEvaluationResult();
         }

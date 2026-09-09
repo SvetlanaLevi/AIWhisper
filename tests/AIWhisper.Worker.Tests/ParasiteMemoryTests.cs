@@ -6,6 +6,15 @@ namespace AIWhisper.Worker.Tests;
 
 public sealed class ParasiteMemoryTests
 {
+    [Theory]
+    [InlineData("[annoyed] End it swiftly—no hesitation.", true)]
+    [InlineData("I want you to spare her.", true)]
+    [InlineData("[curious] This alliance might be a double-edged sword.", false)]
+    [InlineData("[annoyed] Their petty grudges put me at risk.", false)]
+    [InlineData("Must stay alert.", false)]
+    public void ParasiteIntent_RequiresAnExplicitDurableCommitment(string remark, bool expected)
+        => Assert.Equal(expected, ParasiteIntentPolicy.IsDurable(remark));
+
     [Fact]
     public void Operations_CreateUpdateRemove_AreAppliedByTheApplication()
     {
@@ -159,13 +168,14 @@ public sealed class ParasiteMemoryTests
     public void Awakening_SelectsNarrowInterestsWithoutDeletingOtherLongTermMemory()
     {
         var survival = Item(MemoryCategory.Survival, "The host avoided a lethal treatment.");
+        var intent = Item(MemoryCategory.ParasiteIntent, "The parasite urged the host to kill Kagha.", "Kagha");
         var romance = Item(MemoryCategory.CharacterRelationship, "Astarion is attracted to the host.", "Astarion");
-        var all = new[] { survival, romance };
+        var all = new[] { survival, intent, romance };
 
         var selected = new ParasiteMemoryPhasePolicy().Select(all, "Awakening");
 
-        Assert.Equal([survival], selected);
-        Assert.Equal(2, all.Length);
+        Assert.Equal([survival, intent], selected);
+        Assert.Equal(3, all.Length);
     }
 
     [Fact]

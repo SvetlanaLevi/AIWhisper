@@ -7,9 +7,25 @@
     <RootNamespace>AIWhisper.Worker</RootNamespace>
     <UserSecretsId>dialog-extractor-worker</UserSecretsId>
     <InvariantGlobalization>true</InvariantGlobalization>
-    <Version>0.1.0-alpha.3</Version>
+    <FallbackVersion>0.1.0-alpha.3</FallbackVersion>
+    <Version Condition="'$(Version)' == ''">$(FallbackVersion)</Version>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
   </PropertyGroup>
+
+  <Target Name="SetInformationalVersionFromGit"
+          BeforeTargets="GetAssemblyVersion"
+          Condition="'$(Version)' == '$(FallbackVersion)'">
+    <Exec Command="git describe --tags --match &quot;v[0-9]*&quot; --dirty"
+          ConsoleToMSBuild="true"
+          IgnoreExitCode="true">
+      <Output TaskParameter="ConsoleOutput" ItemName="GitDescriptionOutput" />
+      <Output TaskParameter="ExitCode" PropertyName="GitDescriptionExitCode" />
+    </Exec>
+    <PropertyGroup Condition="'$(GitDescriptionExitCode)' == '0' and '@(GitDescriptionOutput)' != ''">
+      <GitDescription>@(GitDescriptionOutput)</GitDescription>
+      <InformationalVersion>$([System.Text.RegularExpressions.Regex]::Replace('$(GitDescription)', '^v', ''))</InformationalVersion>
+    </PropertyGroup>
+  </Target>
 
   <PropertyGroup>
     <!-- OpenAI.Responses (OpenAIResponseClient) is still marked
@@ -50,6 +66,9 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Update="Data\Knowledge\Characters\*.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="Data\Audio\*.wav">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>

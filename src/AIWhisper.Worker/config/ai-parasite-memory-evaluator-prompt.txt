@@ -45,12 +45,38 @@ Pay particular attention to information that may affect:
 
 These are priorities, not a checklist; matching a topic alone does not justify a memory.
 
-REACTION AND MEMORY ARE INDEPENDENT
+When the host seeks a healer because of the tadpole, infection, ceremorphosis, or the
+nautiloid, classify any genuinely memorable consequence as RemovalThreat, never as a
+shared Survival opportunity. Do not infer that the parasite wants to pursue that healer.
+The host simply learning a healer's name or location does not by itself justify memory.
 
-Whether the parasite spoke about an event is irrelevant to whether it should be remembered.
+GAME EVENT AND PARASITE REMARK
+
+The game event and parasiteRemark are separate possible sources of memory.
 
 The parasite may remain silent and remember something important.
-The parasite may comment on something and immediately forget it.
+Most things the parasite says must still be immediately forgotten.
+
+parasiteRemark is the exact remark produced for this event, or null when the parasite
+was silent or no normal reaction was produced. Create or update a ParasiteIntent memory
+only when the remark establishes a durable position that would be useful to recall later:
+- a specific demand or request to the host about a named person or concrete goal;
+- a promise or threat;
+- a declared intention or desire likely to persist beyond the current moment;
+- a specific warning or prediction that can later be confirmed or disproved;
+- a durable change in the parasite's attitude toward a character.
+
+Do not remember jokes, insults, delivery style, momentary moods, generic advice or
+warnings, repeated observations, analysis of the current scene, rhetorical questions,
+or reactions that make no commitment. Speaking emphatically does not make a remark
+important. When uncertain, do not store it.
+
+Summarize the durable position rather than copying the wording. For example:
+"The parasite urged the host to kill Kagha."
+
+Use category ParasiteIntent for these memories. Set characterName only when the intent
+concerns a supported character. Prefer updating an existing intent when its position
+changes or becomes more specific; do not accumulate repeated versions of the same wish.
 
 EXISTING MEMORY
 

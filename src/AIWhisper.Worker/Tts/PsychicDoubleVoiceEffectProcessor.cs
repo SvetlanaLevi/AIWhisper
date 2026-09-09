@@ -75,7 +75,44 @@ public sealed class PsychicDoubleVoiceEffectProcessor : IVoiceEffectProcessor
         }
 
         shadowVoice = new DelayedShadowSampleProvider(shadowVoice, delayMs, delayMix);
-        return new MixingSampleProvider([originalVoice, shadowVoice]);
+        var mixed = new MixingSampleProvider([originalVoice, shadowVoice]);
+        return new TrailingSilenceSampleProvider(mixed, 250);
+    }
+
+    private sealed class TrailingSilenceSampleProvider : ISampleProvider
+    {
+        private readonly ISampleProvider _source;
+        private int _remainingSilenceSamples;
+        private bool _sourceEnded;
+
+        public TrailingSilenceSampleProvider(ISampleProvider source, int durationMs)
+        {
+            _source = source;
+            _remainingSilenceSamples = (int)Math.Ceiling(
+                source.WaveFormat.SampleRate * source.WaveFormat.Channels * durationMs / 1_000d);
+        }
+
+        public WaveFormat WaveFormat => _source.WaveFormat;
+
+        public int Read(float[] buffer, int offset, int count)
+        {
+            if (!_sourceEnded)
+            {
+                var samplesRead = _source.Read(buffer, offset, count);
+                if (samplesRead == count) return samplesRead;
+
+                _sourceEnded = true;
+                var silenceSamples = Math.Min(count - samplesRead, _remainingSilenceSamples);
+                Array.Clear(buffer, offset + samplesRead, silenceSamples);
+                _remainingSilenceSamples -= silenceSamples;
+                return samplesRead + silenceSamples;
+            }
+
+            var remaining = Math.Min(count, _remainingSilenceSamples);
+            if (remaining > 0) Array.Clear(buffer, offset, remaining);
+            _remainingSilenceSamples -= remaining;
+            return remaining;
+        }
     }
 
     private sealed class FilterSampleProvider : ISampleProvider

@@ -62,7 +62,7 @@ public sealed class OpenAIMemoryEvaluator : IMemoryEvaluator
                   "kind": { "type": "string", "enum": ["create", "update", "remove"] },
                   "targetId": { "type": ["string", "null"] },
                   "summary": { "type": ["string", "null"] },
-                  "category": { "type": ["string", "null"], "enum": [null, "survival", "removalThreat", "illithidPower", "ceremorphosis", "parasiteNature", "hostAttitude", "hostBehavior", "relationship", "trust", "protection", "threat", "betrayal", "conflict", "characterOpinion", "characterRelationship", "generalObservation"] },
+                  "category": { "type": ["string", "null"], "enum": [null, "survival", "removalThreat", "illithidPower", "ceremorphosis", "parasiteNature", "hostAttitude", "hostBehavior", "relationship", "trust", "protection", "threat", "betrayal", "conflict", "characterOpinion", "characterRelationship", "generalObservation", "parasiteIntent"] },
                   "characterName": { "type": ["string", "null"] },
                   "tags": { "type": ["array", "null"], "items": { "type": "string" } }
                 },

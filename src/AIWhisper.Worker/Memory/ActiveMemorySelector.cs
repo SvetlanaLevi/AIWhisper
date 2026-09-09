@@ -22,6 +22,7 @@ public sealed class ActiveMemorySelector(
             [MemoryCategory.Trust] = ["trust", "believe", "promise"],
             [MemoryCategory.Betrayal] = ["betray", "lie", "deceive"],
             [MemoryCategory.Conflict] = ["conflict", "fight", "argue", "attack"],
+            [MemoryCategory.ParasiteIntent] = ["want", "demand", "promise", "warn", "kill", "spare", "trust"],
         };
 
     public IReadOnlyList<ParasiteMemoryItem> Select(

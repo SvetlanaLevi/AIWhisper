@@ -106,6 +106,7 @@ public sealed class ConversationManager
     {
         var cancellationToken = linked.Token;
         Task memoryEvaluationTask = Task.CompletedTask;
+        var memoryEvaluationStarted = false;
         var transcript = _contextBuilder.BuildTranscript(dialogue);
         if (string.IsNullOrWhiteSpace(transcript))
         {
@@ -113,13 +114,18 @@ public sealed class ConversationManager
             linked.Dispose();
             return;
         }
+        var hasPendingIntroduction = _developmentPolicy?.TryGetPendingIntroduction(
+            _campaign.Development,
+            out _) == true;
+        if (!hasPendingIntroduction && IsShortNpcOnlyChatter(dialogue))
+        {
+            _log.Info($"dialogue {dialogue.DialogueId} contains only short NPC chatter - skipping memory and AI");
+            linked.Dispose();
+            return;
+        }
 
-        // Freeze reaction context before the memory branch can apply this
-        // batch, so neither result can influence the other.
+        // Freeze reaction context before this batch can update memory.
         var userPrompt = _contextBuilder.BuildUserPrompt(_campaign, dialogue, _maxHistoryEntries);
-        // Reaction and memory evaluate the same completed batch independently.
-        // Memory failure is contained inside EvaluateMemoryAsync.
-        memoryEvaluationTask = EvaluateMemoryAsync(dialogue, transcript, cancellationToken);
         try
         {
             if (_developmentPolicy?.TryGetPendingIntroduction(
@@ -159,6 +165,15 @@ public sealed class ConversationManager
                 return;
             }
 
+            // The evaluator may retain an important intent expressed by the parasite.
+            // It remains background work and does not hold up the reaction queue.
+            memoryEvaluationTask = EvaluateMemoryAsync(
+                dialogue,
+                transcript,
+                decision.Action == AIDecisionAction.Speak ? decision.Text : null,
+                cancellationToken);
+            memoryEvaluationStarted = true;
+
             if (decision.Action == AIDecisionAction.Silent)
             {
                 _log.Info($"dialogue {dialogue.DialogueId}: AI decided to stay silent");
@@ -183,8 +198,33 @@ public sealed class ConversationManager
         }
         finally
         {
+            // Introductions and failed decisions still allow the game event itself
+            // to update memory, but do not invent a parasite intent.
+            if (!memoryEvaluationStarted)
+                memoryEvaluationTask = EvaluateMemoryAsync(dialogue, transcript, null, cancellationToken);
             _ = ObserveMemoryEvaluationAsync(memoryEvaluationTask, linked);
         }
+    }
+
+    private bool IsShortNpcOnlyChatter(DialogueState dialogue)
+    {
+        var contentEvents = dialogue.Events
+            .Where(evt => evt.Type is "dialogue.line" or "dialogue.choice")
+            .ToList();
+        if (contentEvents.Count is 0 or > 2 || contentEvents.Any(evt => evt.Type == "dialogue.choice"))
+            return false;
+
+        return contentEvents.All(evt =>
+        {
+            if (evt.Data.ValueKind != System.Text.Json.JsonValueKind.Object ||
+                !evt.Data.TryGetProperty("speaker", out var speaker))
+                return false;
+            var name = speaker.GetString();
+            return !string.IsNullOrWhiteSpace(name) &&
+                !string.Equals(name, "Narrator", StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(name, "Player", StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(name, _campaign.Session.Player, StringComparison.OrdinalIgnoreCase);
+        });
     }
 
     private static async Task ObserveMemoryEvaluationAsync(
@@ -246,6 +286,7 @@ public sealed class ConversationManager
     private async Task EvaluateMemoryAsync(
         DialogueState dialogue,
         string transcript,
+        string? parasiteRemark,
         CancellationToken cancellationToken)
     {
         if (_memoryEvaluator is null) return;
@@ -278,11 +319,19 @@ public sealed class ConversationManager
                 dialogue.DialogueId,
                 _campaign.Development.CurrentPhase,
                 _campaign.Session.Region,
-                characters), cancellationToken);
+                characters,
+                parasiteRemark), cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
+            var acceptedOperations = result.Operations
+                .Where(operation => operation.Category != MemoryCategory.ParasiteIntent ||
+                    ParasiteIntentPolicy.IsDurable(parasiteRemark))
+                .ToList();
+            var rejectedIntents = result.Operations.Count - acceptedOperations.Count;
+            if (rejectedIntents > 0)
+                _log.Info($"campaign {_campaign.CampaignId}: rejected {rejectedIntents} non-committal parasite intent memory operation(s)");
             var applied = MemoryOperationApplier.Apply(
                 _campaign.Memory,
-                result.Operations,
+                acceptedOperations,
                 _memoryOptions.MaxLongTermItems);
             var characterKnowledgeApplied = DiscoveredCharacterKnowledgeApplier.Apply(
                 _campaign.Memory,

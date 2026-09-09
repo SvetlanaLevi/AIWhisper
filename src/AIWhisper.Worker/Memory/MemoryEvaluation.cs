@@ -12,7 +12,8 @@ public sealed record MemoryEvaluationRequest(
     string DialogueId,
     string? DevelopmentPhase,
     string? Region,
-    IReadOnlyList<string> CurrentCharacters);
+    IReadOnlyList<string> CurrentCharacters,
+    string? ParasiteRemark);
 
 public sealed class MemoryEvaluationResult
 {

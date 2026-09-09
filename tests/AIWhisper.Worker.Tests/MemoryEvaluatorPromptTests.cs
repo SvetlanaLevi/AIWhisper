@@ -22,12 +22,14 @@ public sealed class MemoryEvaluatorPromptTests
             KnownFacts = ["He survived a fatal wound."],
         };
         var json = ParasiteMemoryEvaluatorPrompt.RenderUserContext(new MemoryEvaluationRequest(
-            "C1", [item], [known], ["Ketheric Thorm"], "Nettie: I can treat you.", "D1", "Awakening", "WLD_Main_A", ["Nettie"]));
+            "C1", [item], [known], ["Ketheric Thorm"], "Nettie: I can treat you.", "D1", "Awakening", "WLD_Main_A", ["Nettie"],
+            "Kill her before she poisons us."));
 
         using var document = JsonDocument.Parse(json);
         var root = document.RootElement;
         Assert.Equal("Nettie: I can treat you.", root.GetProperty("completedEventBatch").GetString());
         Assert.Equal("Awakening", root.GetProperty("currentDevelopmentPhase").GetString());
+        Assert.Equal("Kill her before she poisons us.", root.GetProperty("parasiteRemark").GetString());
         Assert.Equal(item.Id, root.GetProperty("existingLongTermMemory")[0].GetProperty("Id").GetGuid());
         Assert.Equal("Ketheric Thorm", root.GetProperty("trackedCharacterNames")[0].GetString());
         Assert.Equal("He survived a fatal wound.", root.GetProperty("existingCharacterKnowledge")[0].GetProperty("KnownFacts")[0].GetString());

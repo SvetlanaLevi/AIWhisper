@@ -30,4 +30,5 @@ public enum MemoryCategory
     CharacterOpinion,
     CharacterRelationship,
     GeneralObservation,
+    ParasiteIntent,
 }

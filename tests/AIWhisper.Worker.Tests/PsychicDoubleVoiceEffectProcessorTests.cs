@@ -133,6 +133,32 @@ public sealed class PsychicDoubleVoiceEffectProcessorTests
         Assert.Equal(0f, samples[^1]);
     }
 
+    [Fact]
+    public void Apply_AfterEffectTail_AddsDeviceDrainSilence()
+    {
+        var source = new ArraySampleProvider([1f], WaveFormat.CreateIeeeFloatWaveFormat(1_000, 1));
+        var processor = new PsychicDoubleVoiceEffectProcessor(new VoiceEffectsOptions
+        {
+            Enabled = true,
+            DelayMs = 100,
+            DelayMix = 0.20f,
+            ReverbMix = 0,
+            HighPassHz = 0,
+            LowPassHz = 0,
+            PitchShiftSemitones = 0,
+        });
+        var output = processor.Apply(source);
+        var samples = new List<float>();
+        var buffer = new float[128];
+        int read;
+        while ((read = output.Read(buffer, 0, buffer.Length)) > 0)
+            samples.AddRange(buffer.AsSpan(0, read).ToArray());
+
+        Assert.Equal(351, samples.Count);
+        Assert.Equal(0.20f, samples[100], precision: 5);
+        Assert.All(samples.Skip(101), sample => Assert.Equal(0f, sample));
+    }
+
     private sealed class ArraySampleProvider : ISampleProvider
     {
         private readonly float[] _samples;

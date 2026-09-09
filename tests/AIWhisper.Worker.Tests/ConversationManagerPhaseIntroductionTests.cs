@@ -166,6 +166,10 @@ public sealed class ConversationManagerPhaseIntroductionTests : IDisposable
         Assert.True(EventParser.TryParse(json, "C1", out var evt, out var error), error?.Message);
         var dialogue = new DialogueState { CampaignId = "C1", DialogueId = dialogueId };
         dialogue.Events.Add(evt!);
+        var choiceJson =
+            $"{{\"schemaVersion\":1,\"campaignId\":\"C1\",\"timestamp\":\"2026-01-01 10:00:01.0000000\",\"source\":\"client\",\"type\":\"dialogue.choice\",\"data\":{{\"dialogueId\":\"{dialogueId}\",\"speaker\":\"Gale\",\"text\":\"We should help.\"}}}}";
+        Assert.True(EventParser.TryParse(choiceJson, "C1", out var choice, out error), error?.Message);
+        dialogue.Events.Add(choice!);
         return dialogue;
     }
 
