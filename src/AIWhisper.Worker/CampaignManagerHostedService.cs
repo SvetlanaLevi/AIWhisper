@@ -95,6 +95,11 @@ public sealed class CampaignManagerHostedService : BackgroundService
             "parasite memory evaluator",
             rootLog,
             stoppingToken);
+        var creativeSparkPrompt = await LoadRequiredPromptAsync(
+            _workerOptions.CreativeSparkPromptPath,
+            "creative spark",
+            rootLog,
+            stoppingToken);
         await LoadDevelopmentPromptsAsync(_parasiteDevelopmentOptions, rootLog, stoppingToken);
 
         using var aiRequestLog = CreateAiRequestLog(rootLog);
@@ -102,7 +107,9 @@ public sealed class CampaignManagerHostedService : BackgroundService
             apiKey,
             _openAiOptions,
             rootLog,
-            aiRequestLog);
+            aiRequestLog,
+            creativeSparkPrompt.Content,
+            creativeSparkPrompt.Id);
         IMemoryEvaluator memoryEvaluator = new OpenAIMemoryEvaluator(
             apiKey,
             _openAiOptions,

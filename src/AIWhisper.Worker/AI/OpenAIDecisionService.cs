@@ -22,12 +22,16 @@ public sealed class OpenAIDecisionService : IAIDecisionService
     private readonly OpenAIOptions _options;
     private readonly IWorkerLog _log;
     private readonly IAiRequestLog _aiRequestLog;
+    private readonly string _creativeSparkPrompt;
+    private readonly string _creativeSparkPromptId;
 
     public OpenAIDecisionService(
         string apiKey,
         OpenAIOptions options,
         IWorkerLog log,
-        IAiRequestLog? aiRequestLog = null)
+        IAiRequestLog? aiRequestLog = null,
+        string creativeSparkPrompt = "",
+        string creativeSparkPromptId = "creative-spark:unspecified")
     {
         var credential = new ApiKeyCredential(apiKey);
         var clientOptions = new ResponsesClientOptions
@@ -39,6 +43,8 @@ public sealed class OpenAIDecisionService : IAIDecisionService
         _options = options;
         _log = log;
         _aiRequestLog = aiRequestLog ?? NullAiRequestLog.Instance;
+        _creativeSparkPrompt = creativeSparkPrompt;
+        _creativeSparkPromptId = creativeSparkPromptId;
     }
 
     public async Task<AIDecision> DecideAsync(AIRequestContext context, CancellationToken cancellationToken)
@@ -88,6 +94,14 @@ public sealed class OpenAIDecisionService : IAIDecisionService
         {
             creationOptions.InputItems.Add(ResponseItem.CreateSystemMessageItem(SimpleEnglishInstruction.Text));
             appliedSystemInstructions.Add("simple-english");
+        }
+        if (!string.IsNullOrWhiteSpace(_creativeSparkPrompt) && CreativeSparkInstruction.ShouldApply(
+                _options.CreativeSparkChance,
+                context.DevelopmentPhase,
+                Random.Shared.NextDouble()))
+        {
+            creationOptions.InputItems.Add(ResponseItem.CreateSystemMessageItem(_creativeSparkPrompt));
+            appliedSystemInstructions.Add(_creativeSparkPromptId);
         }
         creationOptions.InputItems.Add(ResponseItem.CreateUserMessageItem(context.UserPrompt));
         context.SystemInstructionsApplied?.Invoke(appliedSystemInstructions.ToArray());

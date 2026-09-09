@@ -15,6 +15,7 @@ public sealed class WorkerOptions
     public string AudioDirectoryName { get; set; } = "audio";
     public string SystemPromptPath { get; set; } = "config/ai-system-prompt.txt";
     public string MemoryEvaluatorPromptPath { get; set; } = "config/ai-parasite-memory-evaluator-prompt.txt";
+    public string CreativeSparkPromptPath { get; set; } = "config/creative-spark.txt";
     public int MaxConversationHistoryEntries { get; set; } = 20;
     public int LateEventCompletedRetentionMinutes { get; set; } = 30;
     public List<string> IgnoredDialogueResources { get; set; } = [];

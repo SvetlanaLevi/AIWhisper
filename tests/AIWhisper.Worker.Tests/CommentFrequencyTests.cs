@@ -10,6 +10,7 @@ public sealed class CommentFrequencyTests
     public void OpenAIOptions_DefaultsToLow()
     {
         Assert.Equal(CommentFrequency.Low, new OpenAIOptions().CommentFrequency);
+        Assert.Equal(0.05d, new OpenAIOptions().CreativeSparkChance);
         Assert.False(new OpenAIOptions().SimplifyEnglishForNonNativeSpeakers);
     }
 
@@ -95,4 +96,30 @@ public sealed class CommentFrequencyTests
         Assert.Contains("simple English", SimpleEnglishInstruction.Text);
         Assert.Contains("personality", SimpleEnglishInstruction.Text);
     }
+
+    [Fact]
+    public void Configuration_BindsCreativeSparkChance()
+    {
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["OpenAI:CreativeSparkChance"] = "0.0333" })
+            .Build();
+        var options = new OpenAIOptions();
+        configuration.GetSection("OpenAI").Bind(options);
+
+        Assert.Equal(0.0333d, options.CreativeSparkChance);
+    }
+
+    [Theory]
+    [InlineData(0.05, "Awakening", 0.049999, true)]
+    [InlineData(0.05, "Awakening", 0.05, false)]
+    [InlineData(0.05, "Instinctive", 0.00, false)]
+    [InlineData(2.00, "Established", 0.99, true)]
+    [InlineData(-1.0, "Established", 0.00, false)]
+    public void CreativeSpark_UsesConfiguredChanceAndSkipsInstinctive(
+        double chance,
+        string phase,
+        double roll,
+        bool expected)
+        => Assert.Equal(expected, CreativeSparkInstruction.ShouldApply(chance, phase, roll));
+
 }

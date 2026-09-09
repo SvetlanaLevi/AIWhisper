@@ -119,6 +119,10 @@ the only seam that matters here.
   startup (falls back to a short built-in default if the file is missing,
   with a warning in the log). Replace its content freely - nothing in the
   code depends on its wording.
+- **Prompt placement.** Keep substantial personality, style, and behavioral
+  instructions in `config/*.txt` files loaded at startup. C# should contain
+  only short technical selectors, formatting glue, and structured-output
+  contracts, not long model-facing prose.
 - **Timestamps are treated as an ordering-only, single-clock value.** The
   mod's timestamp strings (`"2026-09-05 17:13:06.8766646"`) carry no
   timezone. Since both `server.log` and `client.log` come from the same
