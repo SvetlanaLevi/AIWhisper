@@ -52,6 +52,8 @@ public sealed class LogFileWatcher : IAsyncDisposable
 
     public void RestoreCheckpoint(FileCheckpoint checkpoint) => _reader.RestoreCheckpoint(checkpoint);
 
+    public void StartAtEnd() => _reader.StartAtEnd();
+
     public FileCheckpoint CurrentCheckpoint() => _reader.CurrentCheckpoint();
 
     private void Ping() => _pings.Writer.TryWrite(0);

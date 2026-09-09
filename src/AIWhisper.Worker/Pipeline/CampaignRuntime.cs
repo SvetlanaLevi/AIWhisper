@@ -34,11 +34,13 @@ public sealed class CampaignRuntime : IAsyncDisposable
     private readonly DialogueAggregator _aggregator;
     private readonly CampaignContext _campaignContext;
     private readonly ConversationManager _conversationManager;
+    private readonly bool _startAtEnd;
 
     private CancellationTokenSource? _cts;
     private readonly List<Task> _loopTasks = new();
     private Timer? _checkpointTimer;
     private readonly SemaphoreSlim _checkpointSaveGate = new(1, 1);
+    private bool _sessionActive;
 
     public CampaignRuntime(
         string campaignId,
@@ -52,7 +54,8 @@ public sealed class CampaignRuntime : IAsyncDisposable
         IMemoryEvaluator memoryEvaluator,
         ITextToSpeech textToSpeech,
         string systemPrompt,
-        string systemPromptId = "base:unspecified")
+        string systemPromptId = "base:unspecified",
+        bool startAtEnd = false)
     {
         _campaignId = campaignId;
         _campaignDirectory = campaignDirectory;
@@ -60,6 +63,7 @@ public sealed class CampaignRuntime : IAsyncDisposable
         _memoryOptions = memoryOptions;
         _developmentPolicy = new ParasiteDevelopmentPolicy(parasiteDevelopmentOptions);
         _log = log;
+        _startAtEnd = startAtEnd;
 
         _checkpointStore = new CheckpointStore(Path.Combine(campaignDirectory, options.CheckpointFileName));
         _memoryStore = new CampaignMemoryStore(Path.Combine(campaignDirectory, options.MemoryFileName));
@@ -163,13 +167,18 @@ public sealed class CampaignRuntime : IAsyncDisposable
             _campaignContext.Memory = new CampaignMemory();
             _log.Error($"failed to load campaign memory for {_campaignId}; using empty memory", ex);
         }
-        if (checkpoint.Files.TryGetValue(_options.ServerLogFileName, out var serverCheckpoint))
+        if (_startAtEnd)
         {
-            _serverWatcher.RestoreCheckpoint(serverCheckpoint);
+            _serverWatcher.StartAtEnd();
+            _clientWatcher.StartAtEnd();
+            _log.Info($"campaign {_campaignId}: existing logs skipped; waiting for a new session.start event");
         }
-        if (checkpoint.Files.TryGetValue(_options.ClientLogFileName, out var clientCheckpoint))
+        else
         {
-            _clientWatcher.RestoreCheckpoint(clientCheckpoint);
+            if (checkpoint.Files.TryGetValue(_options.ServerLogFileName, out var serverCheckpoint))
+                _serverWatcher.RestoreCheckpoint(serverCheckpoint);
+            if (checkpoint.Files.TryGetValue(_options.ClientLogFileName, out var clientCheckpoint))
+                _clientWatcher.RestoreCheckpoint(clientCheckpoint);
         }
 
         _serverWatcher.Start(token);
@@ -213,6 +222,17 @@ public sealed class CampaignRuntime : IAsyncDisposable
         {
             try
             {
+                if (evt.Type == "session.start")
+                {
+                    if (!_sessionActive)
+                        _log.Info($"campaign {_campaignId}: live session started; dialogue processing activated");
+                    _sessionActive = true;
+                }
+                if (!_sessionActive)
+                {
+                    _log.Debug($"campaign {_campaignId}: ignored '{evt.Type}' while waiting for session.start");
+                    continue;
+                }
                 if (!await _memoryEventHandler.HandleAsync(evt, token))
                     _aggregator.Handle(evt);
             }

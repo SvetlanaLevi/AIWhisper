@@ -65,7 +65,12 @@ public sealed class CampaignManager : IAsyncDisposable
         _cts = CancellationTokenSource.CreateLinkedTokenSource(outerToken);
         var token = _cts.Token;
 
-        var existingCampaignCount = Directory.EnumerateDirectories(_options.RootDirectory).Count();
+        var existingCampaignIds = Directory.EnumerateDirectories(_options.RootDirectory)
+            .Select(Path.GetFileName)
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .Cast<string>()
+            .ToHashSet(StringComparer.Ordinal);
+        var existingCampaignCount = existingCampaignIds.Count;
         if (existingCampaignCount == 0)
         {
             _rootLog.Warn("no campaign folders found yet; waiting for DialogExtractor to create one");
@@ -76,13 +81,17 @@ public sealed class CampaignManager : IAsyncDisposable
         }
 
         _directoryWatcher = new CampaignDirectoryWatcher(_options.RootDirectory, TimeSpan.FromMilliseconds(_options.DirectoryPollIntervalMs));
-        _directoryWatcher.CampaignDiscovered += campaignId => _ = OnCampaignDiscoveredAsync(campaignId, token);
+        _directoryWatcher.CampaignDiscovered += campaignId =>
+            _ = OnCampaignDiscoveredAsync(campaignId, existingCampaignIds.Contains(campaignId), token);
         _watcherTask = _directoryWatcher.RunAsync(token);
 
         return Task.CompletedTask;
     }
 
-    private async Task OnCampaignDiscoveredAsync(string campaignId, CancellationToken token)
+    private async Task OnCampaignDiscoveredAsync(
+        string campaignId,
+        bool existedAtWorkerStartup,
+        CancellationToken token)
     {
         CampaignRuntime runtime;
         lock (_gate)
@@ -104,7 +113,8 @@ public sealed class CampaignManager : IAsyncDisposable
                 _memoryEvaluator,
                 _ttsFactory(audioDirectory),
                 _systemPrompt,
-                _systemPromptId);
+                _systemPromptId,
+                startAtEnd: existedAtWorkerStartup);
 
             _runtimes[campaignId] = runtime;
         }

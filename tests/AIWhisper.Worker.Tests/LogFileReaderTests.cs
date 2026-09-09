@@ -77,6 +77,22 @@ public class LogFileReaderTests : IDisposable
     }
 
     [Fact]
+    public async Task StartAtEnd_SkipsExistingContentAndReadsNewLines()
+    {
+        await File.WriteAllTextAsync(_path, "{\"a\":1}\n{\"a\":2}\n");
+        var reader = new LogFileReader(_path);
+        reader.StartAtEnd();
+
+        await reader.PollOnceAsync(CancellationToken.None);
+        Assert.Empty(await DrainAsync(reader));
+
+        await File.AppendAllTextAsync(_path, "{\"a\":3}\n");
+        await reader.PollOnceAsync(CancellationToken.None);
+
+        Assert.Equal(new[] { "{\"a\":3}" }, await DrainAsync(reader));
+    }
+
+    [Fact]
     public async Task FileShrinking_IsTreatedAsReplacementAndReadFromScratch()
     {
         await File.WriteAllTextAsync(_path, "{\"a\":1}\n{\"a\":2}\n{\"a\":3}\n");

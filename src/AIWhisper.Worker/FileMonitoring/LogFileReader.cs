@@ -53,6 +53,11 @@ public sealed class LogFileReader
         _position = checkpoint.Position;
     }
 
+    public void StartAtEnd()
+    {
+        _position = File.Exists(_filePath) ? new FileInfo(_filePath).Length : 0;
+    }
+
     public FileCheckpoint CurrentCheckpoint()
     {
         var length = _position;
