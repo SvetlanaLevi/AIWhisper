@@ -17,4 +17,5 @@ public sealed class WorkerOptions
     public string MemoryEvaluatorPromptPath { get; set; } = "config/ai-parasite-memory-evaluator-prompt.txt";
     public int MaxConversationHistoryEntries { get; set; } = 20;
     public int LateEventCompletedRetentionMinutes { get; set; } = 30;
+    public List<string> IgnoredDialogueResources { get; set; } = [];
 }

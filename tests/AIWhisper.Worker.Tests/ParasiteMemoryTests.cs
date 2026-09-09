@@ -70,6 +70,74 @@ public sealed class ParasiteMemoryTests
     }
 
     [Fact]
+    public void Operations_Create_SkipsSimilarMemory()
+    {
+        var existing = Item(
+            MemoryCategory.HostBehavior,
+            "The host feels two hearts beating and senses a hollow wound in the chest, causing pain and identifying as a paladin.",
+            "Laesel");
+        existing.Tags = ["hostPain", "paladin", "twoHearts"];
+        var memory = new CampaignMemory { LongTermMemory = [existing] };
+
+        var result = MemoryOperationApplier.Apply(memory, [new MemoryOperation
+        {
+            Kind = MemoryOperationKind.Create,
+            Summary = "The host senses two hearts beating and a hollow chest wound, experiences pain, and identifies as a paladin.",
+            Category = MemoryCategory.HostBehavior,
+            CharacterName = "laesel",
+            Tags = ["twoHearts", "hostPain", "paladin", "physicalSensation"],
+        }], 10);
+
+        Assert.False(result.Changed);
+        Assert.Equal([existing], memory.LongTermMemory);
+    }
+
+    [Fact]
+    public void Operations_Create_KeepsDistinctMemoryWithSharedTags()
+    {
+        var existing = Item(MemoryCategory.Threat, "A healer offered to remove the parasite with poison.");
+        existing.Tags = ["parasite", "danger", "healer"];
+        var memory = new CampaignMemory { LongTermMemory = [existing] };
+
+        var result = MemoryOperationApplier.Apply(memory, [new MemoryOperation
+        {
+            Kind = MemoryOperationKind.Create,
+            Summary = "The host plans to seek another healer at the grove.",
+            Category = MemoryCategory.Threat,
+            Tags = ["parasite", "healer", "grove"],
+        }], 10);
+
+        Assert.True(result.Changed);
+        Assert.Equal(2, memory.LongTermMemory.Count);
+    }
+
+    [Fact]
+    public void Operations_Create_DeduplicatesItemsCreatedInTheSameBatch()
+    {
+        var memory = new CampaignMemory();
+
+        var result = MemoryOperationApplier.Apply(memory, [
+            new MemoryOperation
+            {
+                Kind = MemoryOperationKind.Create,
+                Summary = "The host repeatedly resists questions about the parasite and leaves to keep it hidden.",
+                Category = MemoryCategory.HostAttitude,
+                Tags = ["hostIgnorance", "parasiteInvisibility", "departure"],
+            },
+            new MemoryOperation
+            {
+                Kind = MemoryOperationKind.Create,
+                Summary = "The host resists questions about the parasite and promptly leaves to keep it hidden.",
+                Category = MemoryCategory.HostAttitude,
+                Tags = ["departure", "parasiteInvisibility", "hostIgnorance"],
+            }
+        ], 10);
+
+        Assert.True(result.Changed);
+        Assert.Single(memory.LongTermMemory);
+    }
+
+    [Fact]
     public void Awakening_SelectsNarrowInterestsWithoutDeletingOtherLongTermMemory()
     {
         var survival = Item(MemoryCategory.Survival, "The host avoided a lethal treatment.");

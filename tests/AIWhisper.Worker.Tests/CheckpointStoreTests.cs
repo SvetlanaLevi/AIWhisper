@@ -44,6 +44,7 @@ public class CheckpointStoreTests : IDisposable
                 DeliveredOneShots = ["awakening-intro"],
             },
             LastAppliedSystemInstructions = ["file:ai-system-prompt.txt", "minimum-reaction-level:Critical"],
+            ProcessedDialogueFingerprints = ["ABC123"],
         };
 
         await store.SaveAsync(checkpoint, CancellationToken.None);
@@ -57,6 +58,7 @@ public class CheckpointStoreTests : IDisposable
         Assert.Equal("WLD_Main_A", reloaded.Development?.ReachedInRegion);
         Assert.Contains("awakening-intro", reloaded.Development!.DeliveredOneShots);
         Assert.Equal(["file:ai-system-prompt.txt", "minimum-reaction-level:Critical"], reloaded.LastAppliedSystemInstructions);
+        Assert.Equal(["ABC123"], reloaded.ProcessedDialogueFingerprints);
     }
 
     [Fact]

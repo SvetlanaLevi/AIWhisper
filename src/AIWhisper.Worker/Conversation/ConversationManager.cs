@@ -31,6 +31,7 @@ public sealed class ConversationManager
     private readonly ParasiteDevelopmentPolicy? _developmentPolicy;
     private readonly string _systemPromptId;
     private readonly Func<CancellationToken, Task>? _saveCheckpoint;
+    private readonly HashSet<string> _ignoredDialogueResources;
 
     public ConversationManager(
         CampaignContext campaign,
@@ -45,7 +46,8 @@ public sealed class ConversationManager
         ParasiteDevelopmentPolicy? developmentPolicy = null,
         string systemPromptId = "base:unspecified",
         Func<CancellationToken, Task>? saveCheckpoint = null,
-        IMemoryEvaluator? memoryEvaluator = null)
+        IMemoryEvaluator? memoryEvaluator = null,
+        IEnumerable<string>? ignoredDialogueResources = null)
     {
         _campaign = campaign;
         _contextBuilder = contextBuilder;
@@ -60,31 +62,55 @@ public sealed class ConversationManager
         _developmentPolicy = developmentPolicy;
         _systemPromptId = systemPromptId;
         _saveCheckpoint = saveCheckpoint;
+        _ignoredDialogueResources = new HashSet<string>(
+            ignoredDialogueResources?.Where(name => !string.IsNullOrWhiteSpace(name)) ?? [],
+            StringComparer.OrdinalIgnoreCase);
     }
 
     public async Task ProcessAsync(DialogueState dialogue, CancellationToken cancellationToken)
     {
         await _campaign.ProcessingGate.WaitAsync(cancellationToken);
+        string? fingerprint = null;
         try
         {
             if (dialogue.Generation != _campaign.Generation) return;
-            using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _campaign.DialogueCancellation.Token);
-            linked.Token.ThrowIfCancellationRequested();
-            await ProcessCurrentAsync(dialogue, linked.Token);
+            var resourceName = DialogueResourceName.Normalize(dialogue.DialogueResource);
+            if (resourceName is not null && _ignoredDialogueResources.Contains(resourceName))
+            {
+                _log.Info($"dialogue {dialogue.DialogueId}: resource '{resourceName}' is configured to be ignored - skipping memory and AI");
+                return;
+            }
+            fingerprint = DialogueFingerprint.Create(dialogue);
+            if (!_campaign.ProcessedDialogueFingerprints.TryAdd(fingerprint, 0))
+            {
+                _log.Info($"dialogue {dialogue.DialogueId}: exact dialogue branch already processed - skipping memory and AI");
+                return;
+            }
+            var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _campaign.DialogueCancellation.Token);
+            await ProcessCurrentAsync(dialogue, linked);
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
+            if (fingerprint is not null) _campaign.ProcessedDialogueFingerprints.TryRemove(fingerprint, out _);
             _log.Info($"dialogue {dialogue.DialogueId}: cancelled by save loading");
+        }
+        catch (OperationCanceledException)
+        {
+            if (fingerprint is not null) _campaign.ProcessedDialogueFingerprints.TryRemove(fingerprint, out _);
+            throw;
         }
         finally { _campaign.ProcessingGate.Release(); }
     }
 
-    private async Task ProcessCurrentAsync(DialogueState dialogue, CancellationToken cancellationToken)
+    private async Task ProcessCurrentAsync(DialogueState dialogue, CancellationTokenSource linked)
     {
+        var cancellationToken = linked.Token;
+        Task memoryEvaluationTask = Task.CompletedTask;
         var transcript = _contextBuilder.BuildTranscript(dialogue);
         if (string.IsNullOrWhiteSpace(transcript))
         {
             _log.Info($"dialogue {dialogue.DialogueId} completed with no line/choice content - skipping AI");
+            linked.Dispose();
             return;
         }
 
@@ -93,7 +119,7 @@ public sealed class ConversationManager
         var userPrompt = _contextBuilder.BuildUserPrompt(_campaign, dialogue, _maxHistoryEntries);
         // Reaction and memory evaluate the same completed batch independently.
         // Memory failure is contained inside EvaluateMemoryAsync.
-        var memoryEvaluationTask = EvaluateMemoryAsync(dialogue, transcript, cancellationToken);
+        memoryEvaluationTask = EvaluateMemoryAsync(dialogue, transcript, cancellationToken);
         try
         {
             if (_developmentPolicy?.TryGetPendingIntroduction(
@@ -157,7 +183,25 @@ public sealed class ConversationManager
         }
         finally
         {
+            _ = ObserveMemoryEvaluationAsync(memoryEvaluationTask, linked);
+        }
+    }
+
+    private static async Task ObserveMemoryEvaluationAsync(
+        Task memoryEvaluationTask,
+        CancellationTokenSource linked)
+    {
+        try
+        {
             await memoryEvaluationTask;
+        }
+        catch (OperationCanceledException) when (linked.IsCancellationRequested)
+        {
+            // Save loading and application shutdown intentionally cancel stale memory work.
+        }
+        finally
+        {
+            linked.Dispose();
         }
     }
 

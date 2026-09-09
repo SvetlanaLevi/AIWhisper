@@ -110,7 +110,8 @@ public sealed class CampaignRuntime : IAsyncDisposable
             _developmentPolicy,
             systemPromptId,
             SaveCheckpointAsync,
-            memoryEvaluator);
+            memoryEvaluator,
+            options.IgnoredDialogueResources);
     }
 
     public async Task StartAsync(CancellationToken outerToken)
@@ -124,6 +125,11 @@ public sealed class CampaignRuntime : IAsyncDisposable
         _campaignContext.Session.Region = restoredSession.Region;
         _campaignContext.Development = checkpoint.Development ?? new ParasiteDevelopmentState();
         _campaignContext.LastAppliedSystemInstructions = checkpoint.LastAppliedSystemInstructions?.ToArray() ?? [];
+        foreach (var fingerprint in checkpoint.ProcessedDialogueFingerprints ?? [])
+        {
+            if (!string.IsNullOrWhiteSpace(fingerprint))
+                _campaignContext.ProcessedDialogueFingerprints.TryAdd(fingerprint, 0);
+        }
         if (_developmentPolicy.EnsureInitialized(_campaignContext.Development, out var developmentWarning))
         {
             _log.Info($"campaign {_campaignId}: initialized parasite development phase '{_campaignContext.Development.CurrentPhase}'");
@@ -247,6 +253,7 @@ public sealed class CampaignRuntime : IAsyncDisposable
                 },
                 Development = _campaignContext.Development,
                 LastAppliedSystemInstructions = _campaignContext.LastAppliedSystemInstructions.ToList(),
+                ProcessedDialogueFingerprints = _campaignContext.ProcessedDialogueFingerprints.Keys.ToList(),
             };
             await _checkpointStore.SaveAsync(checkpoint, token);
         }

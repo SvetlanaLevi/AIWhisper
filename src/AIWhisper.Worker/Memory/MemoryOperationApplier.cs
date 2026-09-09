@@ -6,6 +6,14 @@ public sealed record MemoryApplyResult(bool Changed, IReadOnlyList<Guid> Unknown
 
 public static class MemoryOperationApplier
 {
+    private static readonly HashSet<string> SimilarityStopWords = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "a", "an", "and", "as", "at", "be", "but", "by", "for", "from", "has", "have",
+        "he", "her", "him", "his", "in", "into", "is", "it", "its", "of", "on", "or",
+        "she", "that", "the", "their", "them", "they", "this", "to", "was", "were", "while",
+        "with"
+    };
+
     public static MemoryApplyResult Apply(
         CampaignMemory memory,
         IEnumerable<MemoryOperation>? operations,
@@ -24,13 +32,24 @@ public static class MemoryOperationApplier
                 case MemoryOperationKind.Create:
                     var summary = Normalize(operation.Summary);
                     if (string.IsNullOrEmpty(summary) || operation.Category is null) break;
+                    var characterName = NormalizeNullable(operation.CharacterName);
+                    var tags = NormalizeTags(operation.Tags);
+                    if (memory.LongTermMemory.Any(existing => IsSimilar(
+                            existing,
+                            summary,
+                            operation.Category.Value,
+                            characterName,
+                            tags)))
+                    {
+                        break;
+                    }
                     memory.LongTermMemory.Add(new ParasiteMemoryItem
                     {
                         Id = createId(),
                         Summary = summary,
                         Category = operation.Category.Value,
-                        CharacterName = NormalizeNullable(operation.CharacterName),
-                        Tags = NormalizeTags(operation.Tags),
+                        CharacterName = characterName,
+                        Tags = tags,
                     });
                     changed = true;
                     created = true;
@@ -122,4 +141,56 @@ public static class MemoryOperationApplier
             .Where(tag => tag.Length > 0)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
+
+    private static bool IsSimilar(
+        ParasiteMemoryItem existing,
+        string summary,
+        MemoryCategory category,
+        string? characterName,
+        IReadOnlyCollection<string> tags)
+    {
+        if (existing.Category != category ||
+            !string.Equals(NormalizeNullable(existing.CharacterName), characterName, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        if (string.Equals(NormalizeForComparison(existing.Summary), NormalizeForComparison(summary), StringComparison.Ordinal))
+            return true;
+
+        var summarySimilarity = DiceSimilarity(Tokenize(existing.Summary), Tokenize(summary));
+        if (summarySimilarity >= 0.72) return true;
+
+        var tagSimilarity = DiceSimilarity(
+            existing.Tags.Select(NormalizeForComparison).Where(tag => tag.Length > 0),
+            tags.Select(NormalizeForComparison).Where(tag => tag.Length > 0));
+        return tagSimilarity >= 0.75 && summarySimilarity >= 0.50;
+    }
+
+    private static IReadOnlyCollection<string> Tokenize(string value) =>
+        NormalizeForComparison(value)
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+            .Where(token => token.Length > 1 && !SimilarityStopWords.Contains(token))
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+
+    private static string NormalizeForComparison(string value)
+    {
+        var characters = value
+            .ToLowerInvariant()
+            .Select(character => char.IsLetterOrDigit(character) ? character : ' ')
+            .ToArray();
+        return string.Join(' ', new string(characters)
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries));
+    }
+
+    private static double DiceSimilarity(IEnumerable<string> left, IEnumerable<string> right)
+    {
+        var leftSet = left.ToHashSet(StringComparer.Ordinal);
+        var rightSet = right.ToHashSet(StringComparer.Ordinal);
+        if (leftSet.Count == 0 || rightSet.Count == 0) return 0;
+
+        var common = leftSet.Count(rightSet.Contains);
+        return 2d * common / (leftSet.Count + rightSet.Count);
+    }
 }

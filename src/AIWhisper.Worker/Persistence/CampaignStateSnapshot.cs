@@ -8,4 +8,5 @@ public sealed class CampaignStateSnapshot
     public CampaignMemory Memory { get; set; } = new();
     public ParasiteDevelopmentState Development { get; set; } = new();
     public SessionContext Session { get; set; } = new();
+    public List<string> ProcessedDialogueFingerprints { get; set; } = [];
 }

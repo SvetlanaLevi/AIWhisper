@@ -10,6 +10,7 @@ public sealed class WorkerCheckpoint
     public SessionContext Session { get; set; } = new();
     public ParasiteDevelopmentState? Development { get; set; }
     public List<string> LastAppliedSystemInstructions { get; set; } = [];
+    public List<string> ProcessedDialogueFingerprints { get; set; } = [];
 }
 
 public sealed class FileCheckpoint

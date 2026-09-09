@@ -42,39 +42,57 @@ public sealed class MemoryEventHandler(
         await campaign.ProcessingGate.WaitAsync(cancellationToken);
         try
         {
-            var store = new CampaignSnapshotStore(campaign.Directory);
-            if (evt.Type == "save.start")
+            await campaign.MemoryGate.WaitAsync(cancellationToken);
+            try
             {
-                await store.SaveAsync(memoryId!.Value, new CampaignStateSnapshot
+                var store = new CampaignSnapshotStore(campaign.Directory);
+                if (evt.Type == "save.start")
                 {
-                    Memory = campaign.Memory,
-                    Development = campaign.Development,
-                    Session = campaign.Session,
-                }, cancellationToken);
+                    await store.SaveAsync(memoryId!.Value, new CampaignStateSnapshot
+                    {
+                        Memory = campaign.Memory,
+                        Development = campaign.Development,
+                        Session = campaign.Session,
+                        ProcessedDialogueFingerprints = campaign.ProcessedDialogueFingerprints.Keys.ToList(),
+                    }, cancellationToken);
+                }
+                else
+                {
+                    campaign.Generation++;
+                    resetDialogues?.Invoke();
+                    campaign.DialogueCancellation.Dispose();
+                    campaign.DialogueCancellation = new CancellationTokenSource();
+                    var snapshot = memoryId is Guid id ? await store.LoadAsync(id, cancellationToken) : null;
+                    if (memoryId is not null && snapshot is null)
+                        log.Warn($"campaign {campaign.CampaignId}: snapshot {memoryId} is missing or invalid; using empty state");
+                    snapshot ??= new CampaignStateSnapshot();
+                    campaign.Memory = snapshot.Memory;
+                    campaign.Development = snapshot.Development;
+                    campaign.Session.Player = snapshot.Session.Player;
+                    campaign.Session.Region = snapshot.Session.Region;
+                    campaign.ProcessedDialogueFingerprints.Clear();
+                    foreach (var fingerprint in snapshot.ProcessedDialogueFingerprints ?? [])
+                    {
+                        if (!string.IsNullOrWhiteSpace(fingerprint))
+                            campaign.ProcessedDialogueFingerprints.TryAdd(fingerprint, 0);
+                    }
+                    campaign.History.Clear();
+                    campaign.LastAppliedSystemInstructions = [];
+                    developmentPolicy?.EnsureInitialized(campaign.Development, out _);
+                    await workingStore.SaveAsync(campaign.Memory, cancellationToken);
+                    if (saveCheckpoint is not null) await saveCheckpoint(cancellationToken);
+                }
+                return true;
             }
-            else
+            finally
             {
-                campaign.Generation++;
-                resetDialogues?.Invoke();
-                campaign.DialogueCancellation.Dispose();
-                campaign.DialogueCancellation = new CancellationTokenSource();
-                var snapshot = memoryId is Guid id ? await store.LoadAsync(id, cancellationToken) : null;
-                if (memoryId is not null && snapshot is null)
-                    log.Warn($"campaign {campaign.CampaignId}: snapshot {memoryId} is missing or invalid; using empty state");
-                snapshot ??= new CampaignStateSnapshot();
-                campaign.Memory = snapshot.Memory;
-                campaign.Development = snapshot.Development;
-                campaign.Session.Player = snapshot.Session.Player;
-                campaign.Session.Region = snapshot.Session.Region;
-                campaign.History.Clear();
-                campaign.LastAppliedSystemInstructions = [];
-                developmentPolicy?.EnsureInitialized(campaign.Development, out _);
-                await workingStore.SaveAsync(campaign.Memory, cancellationToken);
-                if (saveCheckpoint is not null) await saveCheckpoint(cancellationToken);
+                campaign.MemoryGate.Release();
             }
-            return true;
         }
-        finally { campaign.ProcessingGate.Release(); }
+        finally
+        {
+            campaign.ProcessingGate.Release();
+        }
     }
 
     private sealed class SnapshotEventData

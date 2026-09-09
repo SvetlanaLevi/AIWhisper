@@ -54,6 +54,8 @@ public sealed class ConversationManagerMemoryTests : IDisposable
         var dialogue = CreateDialogue();
 
         await manager.ProcessAsync(dialogue, CancellationToken.None);
+        await campaign.MemoryGate.WaitAsync().WaitAsync(TimeSpan.FromSeconds(1));
+        campaign.MemoryGate.Release();
 
         var restoredMemory = await new CampaignMemoryStore(Path.Combine(_directory, "memory.json"))
             .LoadAsync(CancellationToken.None);
@@ -70,7 +72,7 @@ public sealed class ConversationManagerMemoryTests : IDisposable
     }
 
     [Fact]
-    public async Task ProcessAsync_WhenAiSpeaks_StartsTtsBeforeMemoryUpdateFinishes()
+    public async Task ProcessAsync_WhenAiSpeaks_CompletesWithoutWaitingForMemoryUpdate()
     {
         var campaign = new CampaignContext { CampaignId = "C1", Directory = _directory };
         var memoryStore = new CampaignMemoryStore(Path.Combine(_directory, "memory.json"));
@@ -92,11 +94,14 @@ public sealed class ConversationManagerMemoryTests : IDisposable
         var processing = manager.ProcessAsync(CreateDialogue(), CancellationToken.None);
         await tts.Started.Task.WaitAsync(TimeSpan.FromSeconds(1));
 
-        Assert.False(processing.IsCompleted);
-        memoryEvaluator.AllowEvaluation.TrySetResult();
-        await processing;
-        Assert.Empty(campaign.Memory.LongTermMemory);
+        await processing.WaitAsync(TimeSpan.FromSeconds(1));
+        Assert.False(memoryEvaluator.AllowEvaluation.Task.IsCompleted);
         Assert.Equal("speak", campaign.History.Single().AiAction);
+
+        memoryEvaluator.AllowEvaluation.TrySetResult();
+        await campaign.MemoryGate.WaitAsync().WaitAsync(TimeSpan.FromSeconds(1));
+        campaign.MemoryGate.Release();
+        Assert.Empty(campaign.Memory.LongTermMemory);
     }
 
     [Fact]
@@ -121,6 +126,62 @@ public sealed class ConversationManagerMemoryTests : IDisposable
         Assert.Equal("silent", campaign.History.Single().AiAction);
         Assert.Single(log.Errors);
         Assert.Empty(campaign.Memory.LongTermMemory);
+    }
+
+    [Fact]
+    public async Task ProcessAsync_ExactRepeatedBranch_SkipsMemoryAndAi()
+    {
+        var campaign = new CampaignContext { CampaignId = "C1", Directory = _directory };
+        var ai = new FakeAiService(AIDecisionAction.Silent);
+        var memoryEvaluator = new FakeMemoryEvaluator();
+        var manager = new ConversationManager(
+            campaign,
+            new AIContextBuilder(),
+            ai,
+            new UnusedTextToSpeech(),
+            new NullLog(),
+            "system",
+            20,
+            new CampaignMemoryStore(Path.Combine(_directory, "memory.json")),
+            new MemoryOptions(),
+            memoryEvaluator: memoryEvaluator);
+
+        await manager.ProcessAsync(CreateDialogue(), default);
+        await manager.ProcessAsync(CreateDialogue(), default);
+
+        Assert.Equal(1, ai.Calls);
+        Assert.Equal(1, memoryEvaluator.Calls);
+        Assert.Single(campaign.History);
+        Assert.Single(campaign.ProcessedDialogueFingerprints);
+    }
+
+    [Fact]
+    public async Task ProcessAsync_IgnoredResource_SkipsMemoryAndAi()
+    {
+        var campaign = new CampaignContext { CampaignId = "C1", Directory = _directory };
+        var ai = new FakeAiService(AIDecisionAction.Silent);
+        var memoryEvaluator = new FakeMemoryEvaluator();
+        var manager = new ConversationManager(
+            campaign,
+            new AIContextBuilder(),
+            ai,
+            new UnusedTextToSpeech(),
+            new NullLog(),
+            "system",
+            20,
+            new CampaignMemoryStore(Path.Combine(_directory, "memory.json")),
+            new MemoryOptions(),
+            memoryEvaluator: memoryEvaluator,
+            ignoredDialogueResources: ["NGB_BuyFromTrader"]);
+        var dialogue = CreateDialogue();
+        dialogue.DialogueResource = "NGB_BuyFromTrader_65b9572e-20c8-46de-a94d-4371bb5f6f85";
+
+        await manager.ProcessAsync(dialogue, default);
+
+        Assert.Equal(0, ai.Calls);
+        Assert.Equal(0, memoryEvaluator.Calls);
+        Assert.Empty(campaign.History);
+        Assert.Empty(campaign.ProcessedDialogueFingerprints);
     }
 
     private static DialogueState CreateDialogue()
@@ -179,9 +240,11 @@ public sealed class ConversationManagerMemoryTests : IDisposable
     private sealed class FakeAiService(AIDecisionAction action) : IAIDecisionService
     {
         public AIRequestContext? LastContext { get; private set; }
+        public int Calls { get; private set; }
 
         public Task<AIDecision> DecideAsync(AIRequestContext context, CancellationToken cancellationToken)
         {
+            Calls++;
             LastContext = context;
             return Task.FromResult(new AIDecision(action, action == AIDecisionAction.Speak ? "A comment." : null));
         }
