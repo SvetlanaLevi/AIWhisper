@@ -31,8 +31,8 @@ public sealed class CommentFrequencyTests
 
     [Theory]
     [InlineData(0.00, MinimumReactionLevel.Normal)]
-    [InlineData(0.249999, MinimumReactionLevel.Normal)]
-    [InlineData(0.25, MinimumReactionLevel.Critical)]
+    [InlineData(0.099999, MinimumReactionLevel.Normal)]
+    [InlineData(0.10, MinimumReactionLevel.Critical)]
     [InlineData(0.99, MinimumReactionLevel.Critical)]
     public void Low_SelectsNormalInsideTwentyFivePercentRange(double roll, MinimumReactionLevel expected)
         => Assert.Equal(expected, MinimumReactionLevelSelector.Select(CommentFrequency.Low, roll));
@@ -65,11 +65,12 @@ public sealed class CommentFrequencyTests
         => Assert.Contains(expected, MinimumReactionLevelInstruction.Create(level));
 
     [Fact]
-    public void NormalAndCriticalPrompts_RejectRoutinePartyManagement()
+    public void NormalAndCriticalPrompts_OnlyDefineTheirThreshold()
     {
-        Assert.Contains("party management are silent", MinimumReactionLevelInstruction.Create(MinimumReactionLevel.Normal));
-        Assert.Contains("party management are silent", MinimumReactionLevelInstruction.Create(MinimumReactionLevel.Critical));
+        Assert.Contains("ordinary reaction threshold", MinimumReactionLevelInstruction.Create(MinimumReactionLevel.Normal));
         Assert.Contains("parasite survival", MinimumReactionLevelInstruction.Create(MinimumReactionLevel.Critical));
+        Assert.DoesNotContain("party management", MinimumReactionLevelInstruction.Create(MinimumReactionLevel.Normal));
+        Assert.DoesNotContain("recent concern", MinimumReactionLevelInstruction.Create(MinimumReactionLevel.Critical));
     }
 
     [Fact]

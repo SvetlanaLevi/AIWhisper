@@ -50,10 +50,21 @@ public sealed class AIContextBuilder
             sb.AppendLine("RECENT CONTEXT");
             foreach (var entry in campaign.History.TakeLast(maxHistoryEntries))
             {
-                var reaction = entry.AiAction == "speak" ? $"responded: \"{entry.AiText}\"" : "stayed silent";
+                var reaction = entry.AiAction == "speak" ? "spoke" : "stayed silent";
                 sb.AppendLine($"- Dialogue {entry.DialogueId}: {entry.TranscriptSummary} -> you {reaction}");
             }
             sb.AppendLine();
+
+            var recentRemarks = campaign.History
+                .Where(entry => entry.AiAction == "speak" && !string.IsNullOrWhiteSpace(entry.AiText))
+                .TakeLast(6)
+                .ToList();
+            if (recentRemarks.Count > 0)
+            {
+                sb.AppendLine("RECENT PARASITE VOICE");
+                foreach (var entry in recentRemarks) sb.AppendLine($"- {entry.AiText}");
+                sb.AppendLine();
+            }
         }
 
         var dialogueName = DialogueResourceName.Normalize(dialogue.DialogueResource);

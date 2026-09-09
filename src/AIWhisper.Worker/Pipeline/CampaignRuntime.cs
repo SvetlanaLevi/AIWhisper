@@ -148,6 +148,12 @@ public sealed class CampaignRuntime : IAsyncDisposable
         try
         {
             _campaignContext.Memory = await _memoryStore.LoadAsync(token);
+            var duplicateMemoryCount = MemoryOperationApplier.DeduplicateExisting(_campaignContext.Memory);
+            if (duplicateMemoryCount > 0)
+            {
+                await _memoryStore.SaveAsync(_campaignContext.Memory, token);
+                _log.Info($"campaign {_campaignId}: removed {duplicateMemoryCount} duplicate long-term memory item(s)");
+            }
             _log.Info(memoryAlreadyExists
                 ? $"loaded campaign memory for {_campaignId}"
                 : $"started with new empty campaign memory for {_campaignId}");

@@ -176,4 +176,21 @@ public class AIContextBuilderTests
         Assert.Contains("Ketheric Thorm: He survived a fatal wound.", prompt);
         Assert.DoesNotContain("He wants the Crown.", prompt);
     }
+
+    [Fact]
+    public void BuildUserPrompt_SeparatesRecentRemarksAndRequestsNovelty()
+    {
+        var campaign = new CampaignContext { CampaignId = "C1", Directory = "/tmp/C1" };
+        campaign.History.Add(new ConversationHistoryEntry(
+            "D0", null, null, null, "A dangerous choice", "speak", "Stay alert. This endangers us both."));
+        var dialogue = new DialogueState { CampaignId = "C1", DialogueId = "D1" };
+        dialogue.Events.Add(MakeEvent("dialogue.line", DateTime.UtcNow,
+            "{\"dialogueId\":\"D1\",\"speaker\":\"Gale\",\"text\":\"Another dangerous choice.\"}"));
+
+        var prompt = new AIContextBuilder().BuildUserPrompt(campaign, dialogue, 5);
+
+        Assert.Contains("RECENT PARASITE VOICE", prompt);
+        Assert.DoesNotContain("Do not repeat the same central thought", prompt);
+        Assert.Equal(1, prompt.Split("Stay alert. This endangers us both.").Length - 1);
+    }
 }

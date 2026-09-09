@@ -3,6 +3,7 @@ using System.Text.Json.Serialization;
 using AIWhisper.Worker.Conversation;
 using AIWhisper.Worker.Development;
 using AIWhisper.Worker.Logging;
+using AIWhisper.Worker.Memory;
 using AIWhisper.Worker.Persistence;
 
 namespace AIWhisper.Worker.EventProcessing;
@@ -67,6 +68,9 @@ public sealed class MemoryEventHandler(
                         log.Warn($"campaign {campaign.CampaignId}: snapshot {memoryId} is missing or invalid; using empty state");
                     snapshot ??= new CampaignStateSnapshot();
                     campaign.Memory = snapshot.Memory;
+                    var duplicateMemoryCount = MemoryOperationApplier.DeduplicateExisting(campaign.Memory);
+                    if (duplicateMemoryCount > 0)
+                        log.Info($"campaign {campaign.CampaignId}: removed {duplicateMemoryCount} duplicate long-term memory item(s) after load");
                     campaign.Development = snapshot.Development;
                     campaign.Session.Player = snapshot.Session.Player;
                     campaign.Session.Region = snapshot.Session.Region;

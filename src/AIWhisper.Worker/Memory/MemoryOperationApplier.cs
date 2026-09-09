@@ -79,6 +79,32 @@ public static class MemoryOperationApplier
         return new MemoryApplyResult(changed, unknownTargets);
     }
 
+    public static int DeduplicateExisting(CampaignMemory memory)
+    {
+        var removed = 0;
+        var keptNewestFirst = new List<ParasiteMemoryItem>();
+
+        for (var index = memory.LongTermMemory.Count - 1; index >= 0; index--)
+        {
+            var candidate = memory.LongTermMemory[index];
+            if (keptNewestFirst.Any(existing => IsSimilar(
+                    existing,
+                    Normalize(candidate.Summary),
+                    candidate.Category,
+                    NormalizeNullable(candidate.CharacterName),
+                    NormalizeTags(candidate.Tags))))
+            {
+                memory.LongTermMemory.RemoveAt(index);
+                removed++;
+                continue;
+            }
+
+            keptNewestFirst.Add(candidate);
+        }
+
+        return removed;
+    }
+
     private static bool TryFind(
         CampaignMemory memory,
         Guid? targetId,

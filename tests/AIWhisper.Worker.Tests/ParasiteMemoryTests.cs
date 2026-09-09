@@ -138,6 +138,24 @@ public sealed class ParasiteMemoryTests
     }
 
     [Fact]
+    public void DeduplicateExisting_KeepsNewestVersionAndRemovesOlderDuplicates()
+    {
+        var oldVersion = Item(MemoryCategory.HostBehavior,
+            "The host feels two hearts beating and senses a hollow wound in the chest, causing pain.");
+        oldVersion.Tags = ["hostPain", "twoHearts"];
+        var distinct = Item(MemoryCategory.Trust, "The host trusted Gale with the secret.", "Gale");
+        var newVersion = Item(MemoryCategory.HostBehavior,
+            "The host senses two hearts beating and a hollow chest wound, experiencing pain.");
+        newVersion.Tags = ["twoHearts", "hostPain", "physicalSensation"];
+        var memory = new CampaignMemory { LongTermMemory = [oldVersion, distinct, newVersion] };
+
+        var removed = MemoryOperationApplier.DeduplicateExisting(memory);
+
+        Assert.Equal(1, removed);
+        Assert.Equal([distinct, newVersion], memory.LongTermMemory);
+    }
+
+    [Fact]
     public void Awakening_SelectsNarrowInterestsWithoutDeletingOtherLongTermMemory()
     {
         var survival = Item(MemoryCategory.Survival, "The host avoided a lethal treatment.");

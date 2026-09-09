@@ -9,7 +9,7 @@ public enum MinimumReactionLevel
 
 public static class MinimumReactionLevelSelector
 {
-    public const double LowNormalProbability = 0.25d;
+    public const double LowNormalProbability = 0.10d;
     public const double MediumNormalProbability = 0.50d;
 
     public static MinimumReactionLevel Select(CommentFrequency frequency) => frequency switch
@@ -56,15 +56,13 @@ public static class MinimumReactionLevelInstruction
                 """,
             MinimumReactionLevel.Normal => """
                 MINIMUM REACTION LEVEL: NORMAL
-                Speak only when the current event gives you a distinct, worthwhile reason.
-                Routine social behavior, acknowledgements, and party management are silent.
+                Use the ordinary reaction threshold defined by the current parasite-development phase.
                 """,
             MinimumReactionLevel.Critical => """
                 MINIMUM REACTION LEVEL: CRITICAL
                 Speak only for an immediate matter of parasite survival, removal, ceremorphosis,
                 or illithid power, or for an exceptional revelation, betrayal, or conflict that
-                materially changes your view. Mild curiosity, amusement, ordinary social behavior,
-                acknowledgements, and party management are silent.
+                materially changes your view. Everything below that threshold is silent.
                 """,
             _ => throw new ArgumentOutOfRangeException(nameof(level), level, null),
         };
