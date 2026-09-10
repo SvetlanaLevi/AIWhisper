@@ -69,7 +69,9 @@ public sealed class CommentFrequencyTests
     public void NormalAndCriticalPrompts_OnlyDefineTheirThreshold()
     {
         Assert.Contains("ordinary reaction threshold", MinimumReactionLevelInstruction.Create(MinimumReactionLevel.Normal));
-        Assert.Contains("parasite survival", MinimumReactionLevelInstruction.Create(MinimumReactionLevel.Critical));
+        Assert.Contains("Default to silent", MinimumReactionLevelInstruction.Create(MinimumReactionLevel.Critical));
+        Assert.Contains("Never invent", MinimumReactionLevelInstruction.Create(MinimumReactionLevel.Critical));
+        Assert.DoesNotContain("potential threat", MinimumReactionLevelInstruction.Create(MinimumReactionLevel.Critical));
         Assert.DoesNotContain("party management", MinimumReactionLevelInstruction.Create(MinimumReactionLevel.Normal));
         Assert.DoesNotContain("recent concern", MinimumReactionLevelInstruction.Create(MinimumReactionLevel.Critical));
     }

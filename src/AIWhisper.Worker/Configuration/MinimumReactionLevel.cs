@@ -60,9 +60,11 @@ public static class MinimumReactionLevelInstruction
                 """,
             MinimumReactionLevel.Critical => """
                 MINIMUM REACTION LEVEL: CRITICAL
-                Speak only for an immediate matter of parasite survival, removal, ceremorphosis,
-                or illithid power, or for an exceptional revelation, betrayal, or conflict that
-                materially changes your view. Everything below that threshold is silent.
+                Default to silent. Speak only when the CURRENT EVENT itself contains an explicit,
+                exceptional development that directly affects you or fundamentally changes your
+                view of the host. A merely possible use, danger, advantage, future connection, or
+                resemblance is below this threshold. Never invent a way for an ordinary creature,
+                object, weapon, conversation, or hazard to affect you in order to justify speaking.
                 """,
             _ => throw new ArgumentOutOfRangeException(nameof(level), level, null),
         };
