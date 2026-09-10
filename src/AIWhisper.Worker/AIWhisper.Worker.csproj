@@ -8,7 +8,7 @@
     <UserSecretsId>dialog-extractor-worker</UserSecretsId>
     <InvariantGlobalization>true</InvariantGlobalization>
     <FallbackVersion>0.1.0-alpha.3</FallbackVersion>
-    <Version Condition="'$(Version)' == ''">$(FallbackVersion)</Version>
+    <Version>0.1.0-alpha.3</Version>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
   </PropertyGroup>
 
