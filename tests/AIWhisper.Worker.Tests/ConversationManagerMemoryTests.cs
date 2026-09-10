@@ -192,6 +192,8 @@ public sealed class ConversationManagerMemoryTests : IDisposable
         var campaign = new CampaignContext { CampaignId = "C1", Directory = _directory };
         var ai = new FakeAiService(AIDecisionAction.Speak);
         var memoryEvaluator = new FakeMemoryEvaluator();
+        var analysisPath = Path.Combine(_directory, "dialogue-analysis.ndjson");
+        var analysisLog = new DialogueAnalysisFileLog(analysisPath);
         var manager = new ConversationManager(
             campaign,
             new AIContextBuilder(),
@@ -202,7 +204,8 @@ public sealed class ConversationManagerMemoryTests : IDisposable
             20,
             new CampaignMemoryStore(Path.Combine(_directory, "memory.json")),
             new MemoryOptions(),
-            memoryEvaluator: memoryEvaluator);
+            memoryEvaluator: memoryEvaluator,
+            dialogueAnalysisLog: analysisLog);
         var dialogue = CreateDialogue();
         dialogue.Events.RemoveAll(evt => evt.Type == "dialogue.choice");
 
@@ -211,6 +214,13 @@ public sealed class ConversationManagerMemoryTests : IDisposable
         Assert.Equal(0, ai.Calls);
         Assert.Equal(0, memoryEvaluator.Calls);
         Assert.Empty(campaign.History);
+        analysisLog.Dispose();
+        var analysis = System.Text.Json.JsonDocument.Parse(File.ReadAllText(analysisPath)).RootElement;
+        Assert.Equal("dialogue", analysis.GetProperty("recordType").GetString());
+        Assert.Equal("skipped", analysis.GetProperty("outcome").GetString());
+        Assert.Equal("short-npc-chatter", analysis.GetProperty("skipReason").GetString());
+        Assert.Contains("Gale: The grove needs help.", analysis.GetProperty("transcript").GetString());
+        Assert.Equal(1, analysis.GetProperty("lineCount").GetInt32());
     }
 
     private static DialogueState CreateDialogue()

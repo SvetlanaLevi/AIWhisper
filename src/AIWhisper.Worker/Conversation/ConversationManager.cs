@@ -32,6 +32,14 @@ public sealed class ConversationManager
     private readonly string _systemPromptId;
     private readonly Func<CancellationToken, Task>? _saveCheckpoint;
     private readonly HashSet<string> _ignoredDialogueResources;
+    private readonly IDialogueAnalysisLog _dialogueAnalysisLog;
+    private readonly string _runId = Guid.NewGuid().ToString("N");
+    private static readonly string Version = typeof(ConversationManager).Assembly
+        .GetCustomAttributes(typeof(System.Reflection.AssemblyInformationalVersionAttribute), false)
+        .OfType<System.Reflection.AssemblyInformationalVersionAttribute>()
+        .FirstOrDefault()?.InformationalVersion
+        ?? typeof(ConversationManager).Assembly.GetName().Version?.ToString()
+        ?? "unknown";
 
     public ConversationManager(
         CampaignContext campaign,
@@ -47,7 +55,8 @@ public sealed class ConversationManager
         string systemPromptId = "base:unspecified",
         Func<CancellationToken, Task>? saveCheckpoint = null,
         IMemoryEvaluator? memoryEvaluator = null,
-        IEnumerable<string>? ignoredDialogueResources = null)
+        IEnumerable<string>? ignoredDialogueResources = null,
+        IDialogueAnalysisLog? dialogueAnalysisLog = null)
     {
         _campaign = campaign;
         _contextBuilder = contextBuilder;
@@ -65,34 +74,43 @@ public sealed class ConversationManager
         _ignoredDialogueResources = new HashSet<string>(
             ignoredDialogueResources?.Where(name => !string.IsNullOrWhiteSpace(name)) ?? [],
             StringComparer.OrdinalIgnoreCase);
+        _dialogueAnalysisLog = dialogueAnalysisLog ?? NullDialogueAnalysisLog.Instance;
     }
 
     public async Task ProcessAsync(DialogueState dialogue, CancellationToken cancellationToken)
     {
         await _campaign.ProcessingGate.WaitAsync(cancellationToken);
+        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
         string? fingerprint = null;
         try
         {
-            if (dialogue.Generation != _campaign.Generation) return;
+            if (dialogue.Generation != _campaign.Generation)
+            {
+                WriteAnalysis(dialogue, _contextBuilder.BuildTranscript(dialogue), "skipped", "stale-generation", stopwatch);
+                return;
+            }
             var resourceName = DialogueResourceName.Normalize(dialogue.DialogueResource);
             if (resourceName is not null && _ignoredDialogueResources.Contains(resourceName))
             {
                 _log.Info($"dialogue {dialogue.DialogueId}: resource '{resourceName}' is configured to be ignored - skipping memory and AI");
+                WriteAnalysis(dialogue, _contextBuilder.BuildTranscript(dialogue), "skipped", "ignored-resource", stopwatch);
                 return;
             }
             fingerprint = DialogueFingerprint.Create(dialogue);
             if (!_campaign.ProcessedDialogueFingerprints.TryAdd(fingerprint, 0))
             {
                 _log.Info($"dialogue {dialogue.DialogueId}: exact dialogue branch already processed - skipping memory and AI");
+                WriteAnalysis(dialogue, _contextBuilder.BuildTranscript(dialogue), "skipped", "duplicate", stopwatch);
                 return;
             }
             var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _campaign.DialogueCancellation.Token);
-            await ProcessCurrentAsync(dialogue, linked);
+            await ProcessCurrentAsync(dialogue, linked, stopwatch);
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
             if (fingerprint is not null) _campaign.ProcessedDialogueFingerprints.TryRemove(fingerprint, out _);
             _log.Info($"dialogue {dialogue.DialogueId}: cancelled by save loading");
+            WriteAnalysis(dialogue, _contextBuilder.BuildTranscript(dialogue), "cancelled", "save-loading", stopwatch);
         }
         catch (OperationCanceledException)
         {
@@ -102,7 +120,7 @@ public sealed class ConversationManager
         finally { _campaign.ProcessingGate.Release(); }
     }
 
-    private async Task ProcessCurrentAsync(DialogueState dialogue, CancellationTokenSource linked)
+    private async Task ProcessCurrentAsync(DialogueState dialogue, CancellationTokenSource linked, System.Diagnostics.Stopwatch stopwatch)
     {
         var cancellationToken = linked.Token;
         Task memoryEvaluationTask = Task.CompletedTask;
@@ -111,6 +129,7 @@ public sealed class ConversationManager
         if (string.IsNullOrWhiteSpace(transcript))
         {
             _log.Info($"dialogue {dialogue.DialogueId} completed with no line/choice content - skipping AI");
+            WriteAnalysis(dialogue, transcript, "skipped", "empty-transcript", stopwatch);
             linked.Dispose();
             return;
         }
@@ -120,6 +139,7 @@ public sealed class ConversationManager
         if (!hasPendingIntroduction && IsShortNpcOnlyChatter(dialogue))
         {
             _log.Info($"dialogue {dialogue.DialogueId} contains only short NPC chatter - skipping memory and AI");
+            WriteAnalysis(dialogue, transcript, "skipped", "short-npc-chatter", stopwatch);
             linked.Dispose();
             return;
         }
@@ -132,7 +152,8 @@ public sealed class ConversationManager
                     _campaign.Development,
                     out var introduction) == true)
             {
-                await PlayPhaseIntroductionAsync(dialogue, transcript, introduction, cancellationToken);
+                var ttsSucceeded = await PlayPhaseIntroductionAsync(dialogue, transcript, introduction, cancellationToken);
+                WriteAnalysis(dialogue, transcript, "phase-introduction", null, stopwatch, introduction.Text, ttsSucceeded);
                 return;
             }
 
@@ -162,6 +183,7 @@ public sealed class ConversationManager
             {
                 _log.Error($"AI decision failed for dialogue {dialogue.DialogueId} after retries - dialogue left unanswered", ex);
                 RecordHistory(dialogue, transcript, "error", null);
+                WriteAnalysis(dialogue, transcript, "error", "ai-decision-failed", stopwatch);
                 return;
             }
 
@@ -178,6 +200,7 @@ public sealed class ConversationManager
             {
                 _log.Info($"dialogue {dialogue.DialogueId}: AI decided to stay silent");
                 RecordHistory(dialogue, transcript, "silent", null);
+                WriteAnalysis(dialogue, transcript, "silent", null, stopwatch);
                 return;
             }
 
@@ -190,10 +213,12 @@ public sealed class ConversationManager
                 var speaker = dialogue.Speakers.Count > 0 ? dialogue.Speakers[0].Name : null;
                 var voiceContext = new VoiceContext(dialogue.CampaignId, dialogue.DialogueId, speaker, null);
                 await _textToSpeech.SynthesizeAsync(decision.Text ?? string.Empty, voiceContext, cancellationToken);
+                WriteAnalysis(dialogue, transcript, "speak", null, stopwatch, decision.Text, true);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 _log.Error($"TTS failed for dialogue {dialogue.DialogueId} - AI text was produced but not spoken", ex);
+                WriteAnalysis(dialogue, transcript, "speak", "tts-failed", stopwatch, decision.Text, false);
             }
         }
         finally
@@ -259,7 +284,7 @@ public sealed class ConversationManager
             aiText));
     }
 
-    private async Task PlayPhaseIntroductionAsync(
+    private async Task<bool> PlayPhaseIntroductionAsync(
         DialogueState dialogue,
         string transcript,
         PhaseIntroductionOptions introduction,
@@ -276,11 +301,35 @@ public sealed class ConversationManager
             RecordHistory(dialogue, transcript, "speak", introduction.Text);
             if (_saveCheckpoint is not null) await _saveCheckpoint(cancellationToken);
             _log.Info($"campaign {_campaign.CampaignId}: delivered phase introduction '{introduction.Id}'");
+            return true;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _log.Error($"campaign {_campaign.CampaignId}: failed to deliver phase introduction '{introduction.Id}' - it will be retried", ex);
+            return false;
         }
+    }
+
+    private void WriteAnalysis(
+        DialogueState dialogue,
+        string transcript,
+        string outcome,
+        string? skipReason,
+        System.Diagnostics.Stopwatch stopwatch,
+        string? aiText = null,
+        bool? ttsSucceeded = null)
+    {
+        var contentEvents = dialogue.Events.Where(evt => evt.Type is "dialogue.line" or "dialogue.choice").ToList();
+        var systemInstructions = outcome is "silent" or "speak" or "error"
+            ? _campaign.LastAppliedSystemInstructions.ToList()
+            : [];
+        _dialogueAnalysisLog.Write(new DialogueAnalysisEntry(
+            DateTimeOffset.UtcNow, _runId, Version, _campaign.CampaignId, dialogue.DialogueId, "dialogue",
+            DialogueResourceName.Normalize(dialogue.DialogueResource), _campaign.Development.CurrentPhase,
+            _campaign.Session.Region, dialogue.Events.Count,
+            contentEvents.Count(evt => evt.Type == "dialogue.line"),
+            contentEvents.Count(evt => evt.Type == "dialogue.choice"), transcript, outcome, skipReason,
+            aiText, systemInstructions, stopwatch.ElapsedMilliseconds, ttsSucceeded));
     }
 
     private async Task EvaluateMemoryAsync(
@@ -338,26 +387,43 @@ public sealed class ConversationManager
                 result.CharacterKnowledgeUpdates,
                 eligibleTrackedCharacters,
                 _memoryOptions.MaxKnownFactsPerCharacter);
+            var changed = applied.Changed || characterKnowledgeApplied.Changed;
             foreach (var target in applied.UnknownTargets)
                 _log.Warn($"campaign {_campaign.CampaignId}: memory operation references unknown target {target}; ignored");
             foreach (var character in characterKnowledgeApplied.RejectedCharacters)
                 _log.Warn($"campaign {_campaign.CampaignId}: discovered knowledge update for untracked character '{character}' was ignored");
-            if (!applied.Changed && !characterKnowledgeApplied.Changed)
+            if (!changed)
             {
+                WriteMemoryAnalysis(dialogue, result, acceptedOperations.Count, rejectedIntents, false);
                 _log.Info($"campaign {_campaign.CampaignId}: memory evaluation for dialogue {dialogue.DialogueId} contained no changes");
                 return;
             }
 
             await _memoryStore.SaveAsync(_campaign.Memory, cancellationToken);
+            WriteMemoryAnalysis(dialogue, result, acceptedOperations.Count, rejectedIntents, true);
             _log.Info($"campaign {_campaign.CampaignId}: memory updated and saved after dialogue {dialogue.DialogueId}");
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _log.Error($"campaign {_campaign.CampaignId}: memory evaluation failed after dialogue {dialogue.DialogueId}; reaction pipeline continues", ex);
+            _dialogueAnalysisLog.WriteMemory(new DialogueMemoryAnalysisEntry(
+                DateTimeOffset.UtcNow, _runId, Version, _campaign.CampaignId, dialogue.DialogueId, "memory",
+                0, 0, 0, 0, false, ex.GetType().Name + ": " + ex.Message));
         }
         finally
         {
             _campaign.MemoryGate.Release();
         }
     }
+
+    private void WriteMemoryAnalysis(
+        DialogueState dialogue,
+        MemoryEvaluationResult result,
+        int acceptedOperations,
+        int rejectedOperations,
+        bool changed) =>
+        _dialogueAnalysisLog.WriteMemory(new DialogueMemoryAnalysisEntry(
+            DateTimeOffset.UtcNow, _runId, Version, _campaign.CampaignId, dialogue.DialogueId, "memory",
+            result.Operations.Count, acceptedOperations, rejectedOperations,
+            result.CharacterKnowledgeUpdates.Count, changed, null));
 }

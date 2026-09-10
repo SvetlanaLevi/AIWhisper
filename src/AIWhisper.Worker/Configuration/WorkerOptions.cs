@@ -10,6 +10,7 @@ public sealed class WorkerOptions
     public string ServerLogFileName { get; set; } = "server.log";
     public string ClientLogFileName { get; set; } = "client.log";
     public string WorkerLogFileName { get; set; } = "worker.log";
+    public string DialogueAnalysisFileName { get; set; } = "dialogue-analysis.ndjson";
     public string CheckpointFileName { get; set; } = "worker-state.json";
     public string MemoryFileName { get; set; } = "memory.json";
     public string AudioDirectoryName { get; set; } = "audio";

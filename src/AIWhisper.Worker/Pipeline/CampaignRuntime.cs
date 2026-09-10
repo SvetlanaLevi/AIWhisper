@@ -34,6 +34,7 @@ public sealed class CampaignRuntime : IAsyncDisposable
     private readonly DialogueAggregator _aggregator;
     private readonly CampaignContext _campaignContext;
     private readonly ConversationManager _conversationManager;
+    private readonly IDialogueAnalysisLog _dialogueAnalysisLog;
     private readonly bool _startAtEnd;
 
     private CancellationTokenSource? _cts;
@@ -67,6 +68,8 @@ public sealed class CampaignRuntime : IAsyncDisposable
 
         _checkpointStore = new CheckpointStore(Path.Combine(campaignDirectory, options.CheckpointFileName));
         _memoryStore = new CampaignMemoryStore(Path.Combine(campaignDirectory, options.MemoryFileName));
+        _dialogueAnalysisLog = new DialogueAnalysisFileLog(
+            Path.Combine(campaignDirectory, options.DialogueAnalysisFileName));
 
         _serverWatcher = new LogFileWatcher(Path.Combine(campaignDirectory, options.ServerLogFileName), TimeSpan.FromMilliseconds(options.FilePollIntervalMs));
         _clientWatcher = new LogFileWatcher(Path.Combine(campaignDirectory, options.ClientLogFileName), TimeSpan.FromMilliseconds(options.FilePollIntervalMs));
@@ -115,7 +118,8 @@ public sealed class CampaignRuntime : IAsyncDisposable
             systemPromptId,
             SaveCheckpointAsync,
             memoryEvaluator,
-            options.IgnoredDialogueResources);
+            options.IgnoredDialogueResources,
+            _dialogueAnalysisLog);
     }
 
     public async Task StartAsync(CancellationToken outerToken)
@@ -314,6 +318,7 @@ public sealed class CampaignRuntime : IAsyncDisposable
         _aggregator.Dispose();
         _cts?.Dispose();
         _checkpointSaveGate.Dispose();
+        _dialogueAnalysisLog.Dispose();
 
         _log.Info($"campaign {_campaignId} runtime stopped");
     }
